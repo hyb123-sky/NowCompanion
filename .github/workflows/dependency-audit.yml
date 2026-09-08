@@ -1,0 +1,44 @@
+name: dependency-audit
+
+# Informational only — never a required check. Reports on dev-toolchain
+# vulnerabilities (not shipped, but worth tracking for the security
+# questionnaire). Production-dependency vulnerabilities are a *blocking*
+# check inside live2d-web.yml / snow-app.yml, not here.
+# See docs/dependency-audit.md for how to read/refresh this.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  dev-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        include:
+          - name: live2d-web
+            path: client/live2d-web
+          - name: snow-app
+            path: snow-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install
+        working-directory: ${{ matrix.path }}
+        run: npm ci
+
+      - name: Full audit (including dev dependencies)
+        working-directory: ${{ matrix.path }}
+        run: npm audit --json > audit-report.json || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-${{ matrix.name }}
+          path: ${{ matrix.path }}/audit-report.json
