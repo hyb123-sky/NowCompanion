@@ -18,3 +18,17 @@ It must not be hardcoded anywhere outside `now.config.json`; CI enforces this
 
 Target PDI: `dev310526` (Australia). Deploy/build commands land here in
 Phase 1 once the SDK project structure exists.
+
+**`now.config.json` is intentionally incomplete.** The installed
+`@servicenow/sdk` requires a `scopeId` (the scoped app's 32-char hex sys_id)
+that only exists once the app record is created on an instance — it cannot
+be known or fabricated ahead of that, so it's omitted here rather than
+guessed. `now-sdk init`/`now-sdk build` against the PDI in Phase 1 will need
+to populate it.
+
+**Open question for Phase 1, not yet resolved:** the SDK's `scope` field is
+constrained to 4-18 characters (`^((x|sn)_[a-z0-9_]+|global)$`).
+`x_1821654_companion` is 19 characters — over the limit. The scope name will
+need to shorten (e.g. `x_1821654_comp`) before `now-sdk init` will accept it.
+Since scope names are immutable once used (ADR-0002), settle on the final
+short form *before* the first real deploy, not after.

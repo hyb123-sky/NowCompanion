@@ -1,6 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/servicenow/sdk/main/packages/cli/now.config.schema.json",
-  "packageName": "x_1821654_companion",
-  "displayName": "NowCompanion",
-  "description": "NowCompanion companion agent: policy-gated task/approval outbox for the NowCompanion desktop client. See docs/adr/0002-vendor-prefix-and-rescope-plan.md before changing this file — the scope name is immutable once deployed to an instance."
+  "$schema": "./node_modules/@servicenow/sdk-project/now.config.schema.json",
+  "scope": "x_1821654_companion",
+  "name": "NowCompanion"
 }
