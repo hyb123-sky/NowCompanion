@@ -1,0 +1,26 @@
+name: client
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore client/NowCompanion.Client/NowCompanion.Client.csproj
+
+      - name: Format check
+        run: dotnet format client/NowCompanion.Client/NowCompanion.Client.csproj --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build client/NowCompanion.Client/NowCompanion.Client.csproj --no-restore --configuration Release

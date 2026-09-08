@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+*.received.*
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+
+# ServiceNow SDK
+.now/
+now-sdk.log
+
+# Local secrets / config overrides (never committed)
+appsettings.Development.json
+appsettings.*.local.json
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

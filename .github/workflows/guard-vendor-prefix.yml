@@ -1,0 +1,30 @@
+name: guard-vendor-prefix
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if the temporary vendor prefix leaks outside now.config.json
+        run: |
+          set -euo pipefail
+          # docs/ is exempt: ADR-0002, the threat model, and snow-app/README.md
+          # are expected to name the prefix in prose. This file itself is
+          # exempt because its own detection pattern below is the one place
+          # the literal has to appear in a workflow file (ADR-0002).
+          ALLOWED_FILE="./snow-app/now.config.json"
+          SELF_FILE="./.github/workflows/guard-vendor-prefix.yml"
+          MATCHES=$(grep -rIl --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=bin --exclude-dir=obj --exclude-dir=docs -e "x_1821654_" . || true)
+          VIOLATIONS=$(printf '%s\n' "$MATCHES" | grep -v -x -e "$ALLOWED_FILE" -e "$SELF_FILE" -e '' || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "The temporary vendor prefix x_1821654_ must appear only in ${ALLOWED_FILE} (ADR-0002). Found it in:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi

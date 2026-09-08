@@ -1,0 +1,17 @@
+{
+  "name": "@nowcompanion/snow-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "now-sdk build",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "@servicenow/sdk": "^3.0.0",
+    "eslint": "^9.9.0",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.3.0"
+  }
+}

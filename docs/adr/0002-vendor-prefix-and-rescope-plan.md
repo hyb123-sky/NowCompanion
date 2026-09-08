@@ -19,18 +19,25 @@ later as hardcoded strings scattered through the codebase.
 ## Decision
 
 1. The literal string `x_1821654_companion` (and its bare prefix
-   `x_1821654_`) may appear in **exactly one file**: `snow-app/now.config.json`.
-   It must not be hardcoded anywhere else in `/snow-app`, `/gateway`,
-   `/client`, `/infra`, `/installer`, tests, or CI workflow files.
+   `x_1821654_`) may appear in exactly one **source/config** file:
+   `snow-app/now.config.json`. It must not be hardcoded anywhere else in
+   `/snow-app`, `/gateway`, `/client`, `/infra`, `/installer`, or tests.
+   `/docs` is exempt from this rule — an ADR that can't name the debt it's
+   describing is useless — as is the one line in the CI guard below whose job
+   is to detect the literal.
 2. The Gateway resolves the ServiceNow scoped-app API path prefix from
    configuration only, at the key `ServiceNow:ScopePrefix` (appsettings /
    environment variable / Key Vault reference depending on environment).
    No compile-time constant, no string literal fallback.
 3. A CI job (`guard-vendor-prefix`, see `.github/workflows/`) fails the build
-   if the literal prefix is found anywhere in the tree except the one
-   allowed file. This makes the rule enforced, not aspirational.
-4. `docs/servicenow-compatibility.md` and any deployment docs refer to the
-   prefix as "the tenant's configured scope prefix," never hardcode it.
+   if the literal prefix is found anywhere in the tree except
+   `snow-app/now.config.json` and the guard's own detection line — scoped to
+   `/snow-app`, `/gateway`, `/client`, `/infra`, `/installer`, and CI workflow
+   files, excluding `/docs`. This makes the rule enforced, not aspirational.
+4. Any deployment/runbook doc outside `/docs/adr` refers to the prefix as
+   "the tenant's configured scope prefix," never hardcodes it — the ADR and
+   threat model are the sanctioned exception, not a precedent for scattering
+   it elsewhere.
 
 ## Blast radius of a future re-scope
 
