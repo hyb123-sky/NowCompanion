@@ -27,6 +27,14 @@ compromise security, maintainability, or enterprise deployability.
 7. Domain-agnostic core: the engine consumes the `task` hierarchy and
    `sysapproval_approver`. ITSM is a **Domain Pack** (`packs/itsm`), not the core.
    Design so `packs/hr` and `packs/rc` can be added without touching core.
+8. Cross-user isolation within a tenant is enforced server-side, not by a
+   client- or gateway-supplied identity parameter. Every `companion_outbox`
+   row carries the target user's sys_id; the Scripted REST API resolves the
+   requesting identity from the authenticated session/token, never from a
+   caller-supplied filter; the Gateway independently verifies the Entra
+   identity → ServiceNow user mapping before pushing any event to a client
+   connection. A correct tenant check (#3) does not by itself satisfy this —
+   see `docs/threat-model.md` §1.6.
 
 ## Repository layout (monorepo)
 ```

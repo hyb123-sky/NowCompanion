@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build-test:
+  live2d-test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,3 +30,13 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Blocking: production dependencies must have zero known high/critical
+      # vulnerabilities (security-questionnaire requirement). This package
+      # currently ships no runtime dependencies, so the check passes
+      # trivially — it starts doing real work once Phase 3 adds any.
+      # Dev-toolchain vulnerabilities are tracked separately and don't block
+      # here — see .github/workflows/dependency-audit.yml and
+      # docs/dependency-audit.md.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

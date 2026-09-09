@@ -9,7 +9,7 @@ ServiceNow scoped application names are prefixed with a vendor prefix that is
 **immutable once the scope is created and used** — changing it means creating
 a new scoped application, not renaming the existing one. NowCompanion's
 company vendor prefix is not yet registered. A prefix is available now,
-`x_1821654_companion`, but it belongs to the developer's **personal**
+`x_1821654_buddy`, but it belongs to the developer's **personal**
 ServiceNow Developer Program account, on the personal PDI `dev310526`, not to
 the company. Development needs to start now (Phase 1), so this ADR accepts
 the personal prefix as a starting point and fixes the containment and
@@ -18,7 +18,7 @@ later as hardcoded strings scattered through the codebase.
 
 ## Decision
 
-1. The literal string `x_1821654_companion` (and its bare prefix
+1. The literal string `x_1821654_buddy` (and its bare prefix
    `x_1821654_`) may appear in exactly one **source/config** file:
    `snow-app/now.config.json`. It must not be hardcoded anywhere else in
    `/snow-app`, `/gateway`, `/client`, `/infra`, `/installer`, or tests.
@@ -39,12 +39,41 @@ later as hardcoded strings scattered through the codebase.
    threat model are the sanctioned exception, not a precedent for scattering
    it elsewhere.
 
+## Scope name — final decision
+
+`x_1821654_buddy` (15 characters). Rejected `x_1821654_comp`: "comp" is
+ambiguous in a ServiceNow context (compliance / component / compensation),
+and a `packs/rc` compliance pack is planned — a name that reads as
+"compliance" would be actively misleading. "buddy" is unambiguous and
+matches the product's actual framing (a companion/buddy character).
+
+The suffix (`buddy`, after `x_1821654_`) is constrained to **5 characters or
+fewer**, independent of any single SDK's length limit. Reason: when the
+re-scope in this ADR happens, the new scope is `x_<company-prefix>_buddy` —
+and the company's future vendor prefix length is unknown today. Keeping the
+suffix short leaves headroom under whatever length limit applies to the
+combined name, so the re-scope isn't blocked by a suffix that was fine under
+one prefix and too long under another.
+
+**Open task for Phase 1:** the SDK's own JSON schema caps `scope` at 18
+characters, but that may not be the ServiceNow platform's actual limit (SDK
+tooling constraints and platform constraints aren't guaranteed to match).
+Once connected to the PDI (`dev310526`), empirically verify the platform's
+real scope-name length limit during scoped-app creation and record the
+measured value in `snow-app/README.md` and here — don't assume the SDK's 18
+is authoritative.
+
+The display label (`name` in `now.config.json`) stays "NowCompanion" — the
+constraint above is on the immutable `scope` field only, not the
+human-readable name.
+
 ## Blast radius of a future re-scope
 
 Because scope names are immutable, migrating to a company-registered prefix
 is **not a rename**. It requires:
 
-- Creating a brand-new scoped application (`x_<company>_companion`) in the
+- Creating a brand-new scoped application (`x_<company>_buddy`, suffix ≤ 5
+  chars per the decision above) in the
   target instance(s), including re-running the SDK deploy for all tables,
   Business Rules, the Scripted REST API, and the integration role.
 - A data migration for any existing `companion_policy` / `companion_outbox`
@@ -59,7 +88,7 @@ is **not a rename**. It requires:
 
 ## Trigger for migration
 
-Migrate off `x_1821654_companion` when the company's own ServiceNow vendor
+Migrate off `x_1821654_buddy` when the company's own ServiceNow vendor
 prefix is registered — before any real customer (i.e., non-personal-PDI)
 onboarding. Do not ship v1.0 against a personal-account prefix.
 

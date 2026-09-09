@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build-test:
+  gateway-build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,13 +17,19 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore gateway/Gateway.Host/Gateway.Host.csproj gateway/tests/Gateway.Host.Tests/Gateway.Host.Tests.csproj
+        run: |
+          dotnet restore gateway/Gateway.Host/Gateway.Host.csproj
+          dotnet restore gateway/tests/Gateway.Host.Tests/Gateway.Host.Tests.csproj
 
       - name: Format check
-        run: dotnet format gateway/Gateway.Host/Gateway.Host.csproj --verify-no-changes --no-restore
+        run: |
+          dotnet format gateway/Gateway.Host/Gateway.Host.csproj --verify-no-changes --no-restore
+          dotnet format gateway/tests/Gateway.Host.Tests/Gateway.Host.Tests.csproj --verify-no-changes --no-restore
 
       - name: Build
-        run: dotnet build gateway/Gateway.Host/Gateway.Host.csproj gateway/tests/Gateway.Host.Tests/Gateway.Host.Tests.csproj --no-restore --configuration Release
+        run: |
+          dotnet build gateway/Gateway.Host/Gateway.Host.csproj --no-restore --configuration Release
+          dotnet build gateway/tests/Gateway.Host.Tests/Gateway.Host.Tests.csproj --no-restore --configuration Release
 
       - name: Test
         run: dotnet test gateway/tests/Gateway.Host.Tests/Gateway.Host.Tests.csproj --no-build --configuration Release

@@ -1,5 +1,5 @@
 {
   "$schema": "./node_modules/@servicenow/sdk-project/now.config.schema.json",
-  "scope": "x_1821654_comp",
+  "scope": "x_1821654_buddy",
   "name": "NowCompanion"
 }

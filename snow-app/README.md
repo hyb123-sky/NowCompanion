@@ -26,9 +26,14 @@ be known or fabricated ahead of that, so it's omitted here rather than
 guessed. `now-sdk init`/`now-sdk build` against the PDI in Phase 1 will need
 to populate it.
 
-**Open question for Phase 1, not yet resolved:** the SDK's `scope` field is
-constrained to 4-18 characters (`^((x|sn)_[a-z0-9_]+|global)$`).
-`x_1821654_companion` is 19 characters — over the limit. The scope name will
-need to shorten (e.g. `x_1821654_comp`) before `now-sdk init` will accept it.
-Since scope names are immutable once used (ADR-0002), settle on the final
-short form *before* the first real deploy, not after.
+**Scope name — final decision:** see `now.config.json` for the current value
+(fits the SDK schema's 4-18 char limit). Full reasoning in
+`docs/adr/0002-vendor-prefix-and-rescope-plan.md` — why the chosen suffix
+was preferred over an earlier, more ambiguous candidate, and why the suffix
+is held to ≤ 5 characters (headroom for the eventual re-scope onto the
+company's vendor prefix, whose length isn't known yet).
+
+**Open task for Phase 1:** the 18-char limit above is the SDK schema's
+stated limit, not a confirmed platform limit. Once connected to the PDI,
+empirically verify the real ServiceNow scope-name length limit during
+scoped-app creation and record the measured value here and in ADR-0002.
