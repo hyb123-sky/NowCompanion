@@ -6,9 +6,10 @@ by one person with no external dependencies (Table A), explicitly deferred
 because it requires something not currently available (Table B), or named
 as a known unknown that must never be written as met.
 
-Two items in the transcription below are flagged as **not fully
-verifiable as originally written** — noted in place, not silently
-weakened, per the instruction that produced this document.
+Two items were flagged as not fully verifiable as originally written and
+have since been resolved by explicit decision (A9's two-whitelist split,
+A11's threshold-pending-baseline rule) — both noted in place below, with
+the decision that closed them.
 
 ## Table A — Technical acceptance (verifiable by me, now)
 
@@ -22,8 +23,9 @@ weakened, per the instruction that produced this document.
 | A6 | Client persists nothing | Test fixture snapshots `%LOCALAPPDATA%`, `%APPDATA%`, `%TEMP%`, and HKCU before and after login + N events. **WebView2 maintains its own user-data folder and will cache there** — point it at a temp directory and clear on exit; the test must be able to catch this specific case. | Diff contains only whitelisted entries: credential-manager entry, logs with no record content, settings file with no business data. |
 | A7 | Logs contain no record content | Inject sentinel strings into event content; grep all Gateway and client log output, including crash and debug output. | Sentinel hits = 0. |
 | A8 | Error recovery and observability | In sequence: kill the Gateway; drop the network; expire the token; have ServiceNow return 5xx. | Client recovers within X seconds with no manual intervention; every failure path emits a structured event with a correlation id; a health endpoint reports poll lag. |
-| A9 | Install, first login, and uninstall | **Windows Sandbox** (built in, free): install from the built artifact, sign in with a development IdP (free-tier tenant or a Keycloak container), see the first event. Then uninstall. The signing step is exercised **in the pipeline with a self-signed certificate now**. | No manual configuration file; completes within N minutes; steps documented. Signing does not break the package. **After uninstall, the A6 snapshot diff is empty apart from whitelisted entries.** ⚠️ **Flagged, not silently fixed**: this criterion as written is self-contradictory. A6's whitelist (credential-manager entry, logs, settings file) describes what's acceptable to find **while the app is installed and in use**. After uninstall, those entries should be **gone**, not present — an uninstalled app that leaves a credential-manager entry behind is a real finding, not a pass. A9 needs its own, narrower whitelist (most likely: empty, full stop — or at most a log file explicitly kept for post-uninstall diagnostics, if that's ever wanted) rather than reusing A6's. Not corrected here because choosing that narrower whitelist is a product decision, not a documentation fix. |
-| A10 | Reference deployment path | Clean machine, `compose up`, end to end. | One event travels from ServiceNow to the desktop. |
+| A9 | Install, first login, and uninstall | **Windows Sandbox** (built in, free): install from the built artifact, sign in with a development IdP (free-tier tenant or a Keycloak container), see the first event. Then uninstall. The signing step is exercised **in the pipeline with a self-signed certificate now**. | No manual configuration file; completes within N minutes; steps documented. Signing does not break the package. **Two separate whitelists, resolved (2026-09-11)**: the *runtime* whitelist is A6's (credential-manager entry, content-free logs, business-data-free settings file — acceptable while the app is installed and in use). The **post-uninstall whitelist is empty** — uninstall must remove the credential-manager entry and all application-written state; nothing from A6's runtime whitelist carries over. If a case is found where something legitimately must survive uninstall, it is named explicitly and decided on its own merits, not added here silently. |
+| A10a | Reference deployment path — image builds and runs | CI (`deploy-reference` job, `ubuntu-latest`, Docker available natively): build the image from `/deploy/reference`, start it via the compose file, hit the health endpoint, assert a response, tear down. Continuous evidence on every PR touching `/deploy/reference` or the Gateway, not a one-off local check. | **Verified once this CI job is green.** Proves: image builds, container starts, health endpoint responds. Does **not** prove A10b. |
+| A10b | Reference deployment path — full end-to-end | Clean machine, `compose up`, real ServiceNow instance, real IdP, real desktop client, one event travels from ServiceNow to the desktop. | **Unverified — reason stated, not implied otherwise.** Requires the Gateway's real ServiceNow/IdP integration and the client to exist (Phase 2/3); a green A10a does not imply this works. Do not let a green build stand in for this. |
 | A11 | Stability and interruption cost under real use | See below. | See below. |
 | A12 | Policy delivery channel — **a Phase 3 design decision, not a later one** | Client reads policy from two sources: a local policy registry path and server-side policy. Enforced local values win on conflict. Verify with local Group Policy on a single machine (an ADMX can be loaded into the local policy editor without a domain). | Server-side change takes effect on the client; a locally enforced lock causes a server-side change to be refused, with a log entry naming the source that won. |
 
@@ -38,14 +40,20 @@ through (opened the record vs. dismissed); false fires (fired, judged
 irrelevant); latency from source event to desktop (P50/P95); memory and CPU
 over an 8-hour session.
 
-**Threshold rule — do not invent a number up front.** Week 1 collects data
-only, no judgement. At the end of week 1, take the observed median
-click-through, **write it into this document as the fixed baseline, and do
-not change it afterwards**. Week 2 is judged against that baseline.
+**Threshold rule — do not invent a number up front (resolved 2026-09-11).**
+Week 1 collects data only, no judgement — including click-through: **report
+the metric with its sample size (n) alongside it, every time**, never a bare
+percentage. The pass threshold for click-through is set by the project
+owner *after* week-1 volume is observed, and is recorded here as
+**"threshold pending observed baseline"** until that happens — not as a
+number now, and not as "week-1 median" assumed to be an adequate baseline
+sight unseen (a low-volume week makes a bare median noise, not signal; see
+the limit below).
 
-**Pass:** two consecutive weeks with zero crashes; week-2 click-through not
-below the week-1 baseline; false fires = 0; memory growth under 20% over
-8 hours.
+**Pass (partial — click-through threshold still pending):** two consecutive
+weeks with zero crashes; false fires = 0; memory growth under 20% over
+8 hours. Click-through's pass/fail line is not set until week-1 (n, metric)
+is reported and the project owner sets the threshold explicitly.
 
 **Honest limits, written into this document:** n = 1; a single instance;
 the developer and the user are the same person. The bias is known. This

@@ -33,16 +33,40 @@ choice below.
   instinct to treat the database-level control as the strong one; here it's
   the fallback, precisely because it isn't guaranteed to exist on every
   provider.
-- Migrations: **provider-neutral EF Core migrations**, not maintained
-  per-provider. Cost of this choice: provider-neutral migrations can't use
-  provider-specific column types or index features (already excluded above),
-  and a handful of EF Core provider quirks (e.g., default-value SQL
-  generation, some datetime precision differences) need integration-test
-  coverage across both providers in the CI matrix rather than assumed
-  identical. The alternative (maintaining two migration histories) was
-  rejected: it doubles the maintenance surface for a benefit (provider-
-  specific optimization) this project doesn't need yet, and the CI matrix
-  below already catches genuine divergence.
+- **Migrations: two migration assemblies, one per provider (Strategy A) —
+  not one provider-neutral migration set.** EF Core generates migrations
+  *per provider*: column types, index syntax, and defaults all land in the
+  model snapshot. A single migration set targeting two providers breaks at
+  the first index or column-type divergence between them — this isn't a
+  style choice, it's how EF's migration generation actually works.
+  - **Mechanism**: a separate `DbContext` design-time factory per provider
+    (or a build-time provider switch feeding one factory), each with its
+    own `Migrations/` folder and its own migration history. Both are
+    generated from the same C# entity model — only the generated migration
+    code differs.
+  - **Cost, stated plainly**: every schema change is authored/generated
+    twice (`dotnet ef migrations add` once per provider) and reviewed
+    twice. This is real, recurring effort, not a one-time setup cost.
+  - **Why accepted anyway**: the alternative (a hand-written SQL migration
+    runner — DbUp, Grate, or similar — with EF used for runtime queries
+    only) trades this duplication for a worse failure mode: EF's model
+    snapshot and the hand-maintained SQL schema can silently drift apart,
+    since nothing forces them to agree. That drift surfaces as a
+    production-only bug (the model believes a column/index exists that the
+    manually-run SQL never created, or vice versa), which is a harder class
+    of failure to catch than "someone forgot to generate the second
+    migration" — the latter is exactly what the CI check below catches
+    automatically, every time, before merge.
+  - **CI must catch the failure mode a passing test suite misses**: a
+    model change with no corresponding migration passes every application
+    test (nothing queries the missing column/table in a way that fails)
+    and only breaks on deployment to a fresh database. The check: run
+    `dotnet ef migrations add __CheckOnly_<timestamp>` (or the equivalent
+    "detect pending model changes" command) for **both** provider
+    factories in CI, and fail if either produces a non-empty diff — a
+    non-empty result means a migration should have been committed and
+    wasn't. This runs in the data-layer lane of the CI matrix below, for
+    both providers, not as a separate optional step.
 
 ## CI provider matrix — scoped
 
@@ -52,8 +76,17 @@ choice below.
   else (unit tests with no DbContext, client/live2d-web, snow-app) runs
   once, as today. This scoping rule is a durable constraint, recorded here
   so the matrix is never deleted later on the grounds that it's slow — the
-  matrix, kept narrow, is the only thing standing between "provider-neutral"
-  being an enforced property and it being a slogan nobody checks.
+  matrix, kept narrow, is the only thing standing between "provider support
+  is real" being an enforced property and it being a slogan nobody checks.
+- **The empty-migration-diff check (above) runs in both matrix legs.** A
+  schema change is not considered complete until both providers' migration
+  histories are up to date and both legs are green — this is what makes
+  "two migration assemblies" an enforced property rather than a hope that
+  whoever changes the model remembers to run the second command.
+- Not implemented yet: there is no Gateway data layer, `DbContext`, or CI
+  data-layer lane at all as of this ADR (Phase 2 builds them). This section
+  specifies what that lane must do once it exists — it is not a claim that
+  it exists today.
 
 ## Secrets
 

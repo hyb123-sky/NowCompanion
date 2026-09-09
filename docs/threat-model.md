@@ -23,7 +23,7 @@
 
 | # | Threat (STRIDE) | Description | Mitigation | Severity |
 |---|---|---|---|---|
-| 1.1 | Spoofing | Malware on the user's machine impersonates the client to the Gateway | Client authenticates to Gateway with an OIDC-issued token (MSAL.NET as the first client-library implementation, Entra ID as the first tested IdP; delegated user token); Gateway validates issuer/audience/signature per request | Medium |
+| 1.1 | Spoofing | Malware on the user's machine impersonates the client to the Gateway | Client authenticates to Gateway with an OIDC-issued token via `IIdentityProvider` (ADR-0001; MSAL.NET is the current implementation — see ADR-0001 "Implementation notes"); delegated user token; Gateway validates issuer/audience/signature per request | Medium |
 | 1.2 | Tampering | Client-side modification of displayed data to mislead the user | Out of scope for v1 (local machine compromise is a broader OS-security problem); logged/audited server-side actions are unaffected | Low |
 | 1.3 | Information Disclosure | Business data (record content) persisted to disk and later exfiltrated from the endpoint | Non-negotiable #2: client is in-memory only, zero business data on disk | High — mitigated by design, unverified until the Phase 3 client exists and is code-reviewed against this rule |
 | 1.4 | Information Disclosure | Record content leaked into client-side logs | Structured logging with allowlisted fields only (ids, correlation_id), never raw record payloads | Medium — mitigated by design, unverified until Phase 3 logging is implemented |
@@ -62,7 +62,7 @@
 - **1.6 (High)** — per-user hub/outbox scoping within a tenant. SN-side mapping/403 lands in Phase 1; the Gateway-side token-derived-OID discipline that makes it meaningful lands in Phase 2, alongside 2.1 — see ADR-0003. A correct tenant check alone does not close this, and neither does Phase 1's half on its own.
 - **3.1 (High)** — per-tenant secret rotation schedule — to be defined in Phase 2 as part of the `ISecretSource` design (ADR-0006).
 - **1.5 (Medium)** — Gateway/SignalR rate limiting — lands with the Phase 2 SignalR hub.
-- **3.4 (Medium)** — vendor-prefix debt — tracked and planned in ADR-0002, not an open security gap by itself. Its migration trigger is currently reopened (ADR-0002, 2026-09-10) rather than tied to a settled technical event — track that reopening, not a "before v1.0" deadline that no longer describes anything technical.
+- **3.4 (Medium)** — vendor-prefix debt — tracked and planned in ADR-0002, not an open security gap by itself. Its migration trigger is closed and technical (ADR-0002: install on any instance not controlled by the prefix holder), not a "before v1.0" deadline.
 - **1.3 / 1.4 / 3.3 / 2.3 ("mitigated by design")** — these describe controls that are architecturally decided but not yet built (no client, no policy engine, no audit log exist yet). Re-verify each against actual code at the end of the phase that implements it, and only then drop the "unverified" qualifier — a control marked closed against code that doesn't exist would undermine the audit evidence this document is meant to produce.
 
 This document is revisited at the end of every phase; new boundaries (e.g.

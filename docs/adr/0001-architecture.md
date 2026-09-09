@@ -4,7 +4,11 @@
   hosting assumptions embedded in it are superseded by ADR-0006; the
   identity-provider specifics in decision #3 are generalized by the
   ADR-0003 amendment; the AI-provider forward-looking decision below is
-  superseded by ADR-0007. Decisions #1, #2, #4, #5, #7 and the repository/
+  superseded by ADR-0007. **Amended 2026-09-11**: decision #2's client-side
+  authentication is placed behind an `IIdentityProvider` abstraction —
+  MSAL.NET is a concrete implementation choice, not an architectural
+  decision, and is named only in "Implementation notes" below, never in
+  this ADR's Decision text. Decisions #1, #4, #5, #7 and the repository/
   phase-gating section otherwise stand, written as originally recorded.
 - Date: 2026-09-08
 
@@ -28,9 +32,10 @@ non-negotiables and fixes the numbering convention for future ADRs
 
 2. **Client is stateless on disk.** No business data (record content,
    notifications, tokens) is written to disk. ServiceNow/Gateway credentials
-   are never handled by the client directly (OIDC tokens live in memory —
-   MSAL.NET as the first client-library implementation, since Entra ID is
-   the first tested IdP); any locally-cached secret material uses Windows
+   are never handled by the client directly — authentication sits behind an
+   `IIdentityProvider` abstraction (see "Implementation notes" for the
+   current concrete implementation); OIDC tokens live in memory only,
+   never on disk; any locally-cached secret material uses Windows
    Credential Manager (DPAPI), never a file. Logs are structured (Serilog) and
    scoped to exclude record fields by construction (log templates take
    identifiers, not payload objects).
@@ -98,6 +103,13 @@ starts:
   integrated later. See ADR-0007 — this supersedes an earlier, broader
   AI-provider-abstraction plan that was scoped larger than this project can
   validate.
+
+## Implementation notes (not architectural decisions — subject to change without an ADR)
+
+- `IIdentityProvider`'s current sole implementation is **MSAL.NET**, since
+  Entra ID is the first tested IdP. This is an implementation detail: a
+  future second IdP or client library swap does not require revisiting
+  decision #2, only this note.
 
 ## Consequences
 

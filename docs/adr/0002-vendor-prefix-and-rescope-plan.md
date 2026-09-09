@@ -1,16 +1,14 @@
 # ADR-0002: Temporary Vendor Prefix and Re-Scope Plan
 
-- Status: Accepted (the decision to proceed on a personal prefix now, and
-  the containment/migration rules below) — **but see "Trigger for
-  migration," reopened 2026-09-10.** Under non-negotiable #9's audit ("an
-  ADR whose only reason was commercial should be reopened, not repainted"),
-  the original trigger condition for this ADR was commercial ("before any
-  real customer onboarding," "do not ship v1.0"), not technical. That
-  section is corrected below rather than reworded into technical-sounding
-  language it doesn't actually have. The rest of this ADR — accepting the
-  personal prefix, the containment rule, the blast-radius plan — stands on
-  its own technical merit (the prefix is immutable and Phase 1 needs to
-  start) and needed no correction.
+- Status: Accepted. **Closed 2026-09-11** — see "Trigger for migration."
+  On 2026-09-10, non-negotiable #9's audit found the original trigger
+  condition ("before any real customer onboarding," "do not ship v1.0")
+  was commercial, not technical, and this ADR was reopened rather than
+  repainted rather than left with an invented substitute. The correct
+  technical trigger turned out to already be implicit in this ADR's own
+  content (see below) — it just hadn't been stated as the trigger. Once
+  stated plainly, the trigger holds on technical grounds alone, so this
+  ADR is closed again, not left open-ended.
 - Date: 2026-09-08
 
 ## Context
@@ -97,29 +95,23 @@ is **not a rename**. It requires:
 - Re-running ATF tests and the Postman/HTTP-file collection (Phase 1
   deliverable) against the new scope before it replaces the old one.
 
-## Trigger for migration — reopened, not answered here
+## Trigger for migration
 
-The original trigger condition ("before any real customer onboarding," "do
-not ship v1.0 against a personal-account prefix") was commercial, not
-technical — there is no technical event that fires "a company prefix has
-been registered." Stripped of that framing, **this ADR does not currently
-have a technical trigger for the re-scope**, and this document will not
-invent one to fill the gap (non-negotiable #9). What's actually known,
-technically:
+**Migration is required before the app is installed on any instance not
+controlled by the holder of the vendor prefix.**
 
-- The re-scope must happen before this project's scoped app is deployed
-  to any ServiceNow instance other than the developer's own personal PDI
-  — reusing a personal-account scope name against a second party's
-  instance is the actual technical constraint, independent of any
-  commercial framing of who that second party is or why.
-- Until that happens, the blast-radius plan above is the entire cost of
-  staying on `x_1821654_buddy` — which is bounded and known, not urgent to
-  resolve on its own.
+This is purely technical: scope names are unique per instance. A prefix
+derived from one developer's personal account may already be occupied by
+something unrelated on a third-party instance, and this project has no
+claim to that namespace there regardless — the prefix was never
+"reserved" anywhere beyond the personal account it was issued to. No
+commercial framing (who the third party is, why they're onboarding, any
+notion of "customer") is needed to state this; it holds for literally any
+instance this project's holder doesn't control.
 
-Whoever owns this project's roadmap decides when a company-registered
-prefix is worth acquiring; this ADR only guarantees that whenever that
-happens, the migration is a scheduled, checklist-driven event rather than
-emergency surgery.
+The blast-radius plan above is the entire cost of staying on
+`x_1821654_buddy` until that trigger fires — bounded and known, not urgent
+to resolve while the only instance in use is the personal PDI itself.
 
 ## Risk while the debt is outstanding
 

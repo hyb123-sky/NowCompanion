@@ -70,9 +70,12 @@ compromise security, maintainability, or enterprise deployability.
 
 ## Repository layout (monorepo)
 ```
-/client        .NET 8, WPF, WebView2 host, MSAL.NET. Transparent borderless
-               always-on-top window, tray icon, drag/edge-snap, Live2D Web SDK
-               rendered inside WebView2 (TypeScript, Vite). No business logic here.
+/client        .NET 8, WPF, WebView2 host, authentication behind an
+               `IIdentityProvider` abstraction (ADR-0001; MSAL.NET is the
+               current implementation, see ADR-0001 "Implementation
+               notes"). Transparent borderless always-on-top window, tray
+               icon, drag/edge-snap, Live2D Web SDK rendered inside
+               WebView2 (TypeScript, Vite). No business logic here.
 /gateway       ASP.NET Core 8 minimal API + SignalR. OIDC multi-tenant auth
                (Entra ID is the first tested IdP). EF Core only — no raw SQL,
                no provider-specific types (ADR-0006); PostgreSQL primary, SQL
@@ -96,8 +99,11 @@ compromise security, maintainability, or enterprise deployability.
                commitment — any container host can consume the same image.
                See ADR-0006. Replaces /infra (deleted; it held only
                speculative IaC framing, nothing built).
-/installer     MSIX/MSI via WiX, code-signed, Intune-ready, silent install,
-               ADMX policy template for enforced settings.
+/installer     MSIX/MSI via WiX, code-signed, silent install, ADMX policy
+               template for enforced settings, deployable through a
+               centrally managed deployment vehicle (Intune is one example
+               — see Definition of Done Table B, "Managed enterprise
+               deployment").
 /docs          ADRs (docs/adr/NNNN-*.md), threat model, Definition of Done
                (docs/definition-of-done.md — audit evidence must be
                exportable in tabular form), ServiceNow version compatibility
