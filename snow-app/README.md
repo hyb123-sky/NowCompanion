@@ -5,14 +5,15 @@ ServiceNow SDK (Fluent). Deployed successfully to the PDI (Phase 1). Phase 1
 adds:
 
 - Tables: `companion_policy`, `companion_outbox`, `companion_user_map`
-  (Entra OID ↔ `sys_user`, see
-  `docs/adr/0003-identity-resolution-oauth-client-credentials.md`) — PR-2,
-  not yet built.
+  (OIDC `(idp_issuer, idp_subject)` ↔ `sys_user` — Entra ID's `oid` claim is
+  the first tested subject, see
+  `docs/adr/0003-identity-resolution-oauth-client-credentials.md` and its
+  2026-09-10 amendment) — PR-2, not yet built.
 - Business Rules on concrete tables (e.g. `incident`, `change_request`) in
   the ITSM domain pack — never on `task` directly — each calling a shared,
   domain-agnostic Script Include in this scope — PR-4, pending the SLA
   detection strategy decision in `docs/adr/0005-sla-threshold-detection-strategy.md`.
-- Scripted REST API: `/events` (OID-based, watermark-paged), `/ack`,
+- Scripted REST API: `/events` (subject-based, watermark-paged), `/ack`,
   `/context` — PR-5.
 - Roles: `.user`, `.admin`, `.integration` (scope-prefixed per
   `now.config.json`), declared explicitly in `src/fluent/roles.now.ts` so

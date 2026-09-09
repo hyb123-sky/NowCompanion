@@ -60,21 +60,19 @@ The sequence to get there:
 `snow-app/README.md`'s workaround note) and is the next concrete task,
 tracked here rather than assumed.
 
-## Recommendation: Enforcing, with explicit `CrossScopePrivilege` declarations, before any customer-facing release
+## Recommendation: Enforcing, with explicit `CrossScopePrivilege` declarations, before any external deployment
 
-**Argument for:** a product sold to enterprise customers will face a
-security review (this project's own `docs/threat-model.md` and the JP
-security-questionnaire deliverable exist precisely for that scrutiny). An
-app running in None or Tracking mode gives a customer's reviewer no visible,
-auditable list of what it touches outside its own scope — they'd have to
-trust the vendor's word. **Enforcing**, with every required privilege
-declared explicitly in Fluent source (`CrossScopePrivilege` records,
-source-controlled, reviewable in a PR like any other change), turns "trust
-us" into "here is the exact, version-controlled list, and the platform
-itself blocks anything not on it." This is a strictly stronger claim to be
-able to make in a security questionnaire, and it costs nothing at runtime
-once the correct set is known (Enforcing only blocks *undeclared* access —
-correctly declared access is unaffected).
+**Argument for:** an app running in None or Tracking mode gives an external
+reviewer of this system no visible, auditable list of what it touches
+outside its own scope — they'd have to take it on faith. **Enforcing**,
+with every required privilege declared explicitly in Fluent source
+(`CrossScopePrivilege` records, source-controlled, reviewable in a PR like
+any other change), replaces that with "here is the exact, version-controlled
+list, and the platform itself blocks anything not on it." Audit evidence
+must be exportable in tabular form — this is what makes that possible for
+cross-scope access specifically — and it costs nothing at runtime once the
+correct set is known (Enforcing only blocks *undeclared* access — correctly
+declared access is unaffected).
 
 **Argument against / cost:** Enforcing is unforgiving of an incomplete
 privilege list — if step 4 above misses a code path (e.g., a rarely-hit
