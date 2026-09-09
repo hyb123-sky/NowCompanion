@@ -1,6 +1,16 @@
 # ADR-0002: Temporary Vendor Prefix and Re-Scope Plan
 
-- Status: Accepted (tracked as technical debt)
+- Status: Accepted (the decision to proceed on a personal prefix now, and
+  the containment/migration rules below) — **but see "Trigger for
+  migration," reopened 2026-09-10.** Under non-negotiable #9's audit ("an
+  ADR whose only reason was commercial should be reopened, not repainted"),
+  the original trigger condition for this ADR was commercial ("before any
+  real customer onboarding," "do not ship v1.0"), not technical. That
+  section is corrected below rather than reworded into technical-sounding
+  language it doesn't actually have. The rest of this ADR — accepting the
+  personal prefix, the containment rule, the blast-radius plan — stands on
+  its own technical merit (the prefix is immutable and Phase 1 needs to
+  start) and needed no correction.
 - Date: 2026-09-08
 
 ## Context
@@ -21,18 +31,19 @@ later as hardcoded strings scattered through the codebase.
 1. The literal string `x_1821654_buddy` (and its bare prefix
    `x_1821654_`) may appear in exactly one **source/config** file:
    `snow-app/now.config.json`. It must not be hardcoded anywhere else in
-   `/snow-app`, `/gateway`, `/client`, `/infra`, `/installer`, or tests.
+   `/snow-app`, `/gateway`, `/client`, `/deploy`, `/installer`, or tests.
    `/docs` is exempt from this rule — an ADR that can't name the debt it's
    describing is useless — as is the one line in the CI guard below whose job
    is to detect the literal.
 2. The Gateway resolves the ServiceNow scoped-app API path prefix from
    configuration only, at the key `ServiceNow:ScopePrefix` (appsettings /
-   environment variable / Key Vault reference depending on environment).
-   No compile-time constant, no string literal fallback.
+   environment variable / `ISecretSource` reference depending on
+   environment — see ADR-0006). No compile-time constant, no string
+   literal fallback.
 3. A CI job (`guard-vendor-prefix`, see `.github/workflows/`) fails the build
    if the literal prefix is found anywhere in the tree except
    `snow-app/now.config.json` and the guard's own detection line — scoped to
-   `/snow-app`, `/gateway`, `/client`, `/infra`, `/installer`, and CI workflow
+   `/snow-app`, `/gateway`, `/client`, `/deploy`, `/installer`, and CI workflow
    files, excluding `/docs`. This makes the rule enforced, not aspirational.
 4. Any deployment/runbook doc outside `/docs/adr` refers to the prefix as
    "the tenant's configured scope prefix," never hardcodes it — the ADR and
@@ -86,11 +97,29 @@ is **not a rename**. It requires:
 - Re-running ATF tests and the Postman/HTTP-file collection (Phase 1
   deliverable) against the new scope before it replaces the old one.
 
-## Trigger for migration
+## Trigger for migration — reopened, not answered here
 
-Migrate off `x_1821654_buddy` when the company's own ServiceNow vendor
-prefix is registered — before any real customer (i.e., non-personal-PDI)
-onboarding. Do not ship v1.0 against a personal-account prefix.
+The original trigger condition ("before any real customer onboarding," "do
+not ship v1.0 against a personal-account prefix") was commercial, not
+technical — there is no technical event that fires "a company prefix has
+been registered." Stripped of that framing, **this ADR does not currently
+have a technical trigger for the re-scope**, and this document will not
+invent one to fill the gap (non-negotiable #9). What's actually known,
+technically:
+
+- The re-scope must happen before this project's scoped app is deployed
+  to any ServiceNow instance other than the developer's own personal PDI
+  — reusing a personal-account scope name against a second party's
+  instance is the actual technical constraint, independent of any
+  commercial framing of who that second party is or why.
+- Until that happens, the blast-radius plan above is the entire cost of
+  staying on `x_1821654_buddy` — which is bounded and known, not urgent to
+  resolve on its own.
+
+Whoever owns this project's roadmap decides when a company-registered
+prefix is worth acquiring; this ADR only guarantees that whenever that
+happens, the migration is a scheduled, checklist-driven event rather than
+emergency surgery.
 
 ## Risk while the debt is outstanding
 

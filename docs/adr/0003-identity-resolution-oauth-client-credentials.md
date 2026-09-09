@@ -1,7 +1,10 @@
 # ADR-0003: Identity Resolution Under OAuth Client Credentials
 
 - Status: Accepted — corrects a mistaken assumption in `CLAUDE.md`
-  non-negotiable #8 as originally written.
+  non-negotiable #8 as originally written. **Amended 2026-09-10** — see
+  "Amendment: OIDC generalization" below. The original decision (2026-09-09)
+  is left as written; the amendment supersedes its Entra-specific wording
+  without changing the trust boundary it establishes.
 - Date: 2026-09-09
 
 ## Context
@@ -83,3 +86,43 @@ resolve population before this is usable end-to-end.
   partially-independent mitigations (SN-side mapping/403, Gateway-side token
   validation) rather than one mitigation, since the second is unbuilt and
   the first alone does not close the threat.
+
+## Amendment (2026-09-10): OIDC generalization
+
+The original decision above is written in terms of Entra and its `oid`
+claim, matching ADR-0001's original single-IdP assumption. ADR-0006
+generalizes hosting; this amendment generalizes identity provider choice
+the same way, **without weakening the cross-user isolation defence this
+ADR exists to establish.**
+
+1. **`companion_user_map`'s key becomes the composite `(idp_issuer,
+   idp_subject)`, unique on the pair.** A subject alone is not a key — the
+   same subject value could in principle be issued by different issuers
+   with different meanings, and treating a bare subject as globally unique
+   would silently reintroduce a cross-tenant confusion risk this project
+   has already had to correct once (threat 2.1). The table's two original
+   columns (`sys_user` reference, subject identifier) are unchanged in
+   spirit; only the subject side gains the issuer as a required companion
+   field.
+2. **Deployment precondition, stated plainly, not silently degraded
+   around**: the IdP must issue a subject claim that is stable across
+   applications for the same human. Entra ID's `oid` claim satisfies this.
+   A plain OIDC `sub` claim is not guaranteed to — many OIDC providers
+   issue **pairwise** subjects, a different value per client application
+   for the same underlying user, by design (it's a privacy feature at the
+   IdP layer, not a bug). **If the deployed IdP cannot guarantee a stable,
+   cross-application subject, this product cannot correctly resolve
+   identity under this design — that must be said plainly during
+   integration/onboarding with a new IdP, not discovered later as silently
+   broken mappings.** No fallback or best-effort behavior is specified for
+   a pairwise-subject IdP; building one is future work if it's ever needed,
+   not assumed here.
+3. **The abstraction changes the name of the claim, not the trust
+   boundary.** Everything non-negotiable #8 and this ADR's original
+   decision established is unchanged: server-side reverse lookup only; the
+   Scripted REST API never accepts a caller-supplied user identifier as a
+   filter, only the IdP-issuer-scoped subject the Gateway derived from a
+   validated token; 403 — never an empty result — when the subject has no
+   map entry. Generalizing the claim's name from "Entra OID" to "OIDC
+   `(issuer, subject)`" is a terminology and schema change, not a relaxation
+   of any of these rules.

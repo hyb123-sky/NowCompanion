@@ -8,9 +8,9 @@ they carry different consequences and different urgency:
 - **Production dependencies** (`npm audit --omit=dev --audit-level=high`) —
   code that ships and runs as part of the product. This is a **blocking**
   step inside `live2d-web.yml` and `snow-app.yml`'s existing job — a
-  high/critical finding here fails the PR. This is the number that goes on
-  the security questionnaire as "zero known critical findings in shipped
-  dependencies," backed by CI.
+  high/critical finding here fails the PR. This is the number for which
+  audit evidence must be exportable in tabular form — "zero known critical
+  findings in shipped dependencies," backed by CI.
 - **Dev-toolchain dependencies** (`npm audit`, full tree) — build/lint/test
   tooling that never ships. Reported by the separate, **non-blocking**
   `dependency-audit.yml` workflow (`continue-on-error: true`), which uploads
@@ -51,5 +51,5 @@ yet. It starts doing real work once:
 
 The `@servicenow/sdk` dev-toolchain findings are a known, recorded item —
 not fixed as of this snapshot, not blocking, but should be named explicitly
-in the security questionnaire as "build-time tooling, not shipped in the
-product."
+wherever audit evidence is compiled, as "build-time tooling, not shipped in
+the product."
