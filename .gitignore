@@ -15,6 +15,7 @@ npm-debug.log*
 # ServiceNow SDK
 .now/
 now-sdk.log
+target/
 
 # Local secrets / config overrides (never committed)
 appsettings.Development.json
