@@ -1,0 +1,14 @@
+# Reference compose file. Runs the Gateway host in a container. Nothing
+# else exists to compose yet - no database schema, no fake ServiceNow
+# server - those get added here as they're actually built (Phase 2), not
+# stubbed in now. See README.md for what this file is and isn't.
+
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/reference/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development

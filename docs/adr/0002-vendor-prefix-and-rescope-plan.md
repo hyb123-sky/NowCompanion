@@ -1,6 +1,14 @@
 # ADR-0002: Temporary Vendor Prefix and Re-Scope Plan
 
-- Status: Accepted (tracked as technical debt)
+- Status: Accepted. **Closed 2026-09-11** — see "Trigger for migration."
+  On 2026-09-10, non-negotiable #9's audit found the original trigger
+  condition ("before any real customer onboarding," "do not ship v1.0")
+  was commercial, not technical, and this ADR was reopened rather than
+  repainted rather than left with an invented substitute. The correct
+  technical trigger turned out to already be implicit in this ADR's own
+  content (see below) — it just hadn't been stated as the trigger. Once
+  stated plainly, the trigger holds on technical grounds alone, so this
+  ADR is closed again, not left open-ended.
 - Date: 2026-09-08
 
 ## Context
@@ -21,18 +29,19 @@ later as hardcoded strings scattered through the codebase.
 1. The literal string `x_1821654_buddy` (and its bare prefix
    `x_1821654_`) may appear in exactly one **source/config** file:
    `snow-app/now.config.json`. It must not be hardcoded anywhere else in
-   `/snow-app`, `/gateway`, `/client`, `/infra`, `/installer`, or tests.
+   `/snow-app`, `/gateway`, `/client`, `/deploy`, `/installer`, or tests.
    `/docs` is exempt from this rule — an ADR that can't name the debt it's
    describing is useless — as is the one line in the CI guard below whose job
    is to detect the literal.
 2. The Gateway resolves the ServiceNow scoped-app API path prefix from
    configuration only, at the key `ServiceNow:ScopePrefix` (appsettings /
-   environment variable / Key Vault reference depending on environment).
-   No compile-time constant, no string literal fallback.
+   environment variable / `ISecretSource` reference depending on
+   environment — see ADR-0006). No compile-time constant, no string
+   literal fallback.
 3. A CI job (`guard-vendor-prefix`, see `.github/workflows/`) fails the build
    if the literal prefix is found anywhere in the tree except
    `snow-app/now.config.json` and the guard's own detection line — scoped to
-   `/snow-app`, `/gateway`, `/client`, `/infra`, `/installer`, and CI workflow
+   `/snow-app`, `/gateway`, `/client`, `/deploy`, `/installer`, and CI workflow
    files, excluding `/docs`. This makes the rule enforced, not aspirational.
 4. Any deployment/runbook doc outside `/docs/adr` refers to the prefix as
    "the tenant's configured scope prefix," never hardcodes it — the ADR and
@@ -88,9 +97,21 @@ is **not a rename**. It requires:
 
 ## Trigger for migration
 
-Migrate off `x_1821654_buddy` when the company's own ServiceNow vendor
-prefix is registered — before any real customer (i.e., non-personal-PDI)
-onboarding. Do not ship v1.0 against a personal-account prefix.
+**Migration is required before the app is installed on any instance not
+controlled by the holder of the vendor prefix.**
+
+This is purely technical: scope names are unique per instance. A prefix
+derived from one developer's personal account may already be occupied by
+something unrelated on a third-party instance, and this project has no
+claim to that namespace there regardless — the prefix was never
+"reserved" anywhere beyond the personal account it was issued to. No
+commercial framing (who the third party is, why they're onboarding, any
+notion of "customer") is needed to state this; it holds for literally any
+instance this project's holder doesn't control.
+
+The blast-radius plan above is the entire cost of staying on
+`x_1821654_buddy` until that trigger fires — bounded and known, not urgent
+to resolve while the only instance in use is the personal PDI itself.
 
 ## Risk while the debt is outstanding
 

@@ -7,7 +7,7 @@ reviewed before Phase 3 starts.
 
 | Dependency | Version | License | Notes |
 |---|---|---|---|
-| Live2D Cubism SDK for Web | TBD (selected in Phase 3) | Live2D Proprietary — **Free/Evaluation Material License** for Phase 3 MVP | Free tier is scoped to evaluation/small-scale commercial use under Live2D's published thresholds (revenue/user-count caps); re-review before any commercial launch to confirm whether a paid Cubism license is required at that point. Renderer is behind an `ICharacterRenderer` abstraction (Phase 3 ADR) specifically so the licensed SDK is swappable, not load-bearing across the whole client. |
+| Live2D Cubism SDK for Web | TBD (selected in Phase 3) | Live2D Proprietary — **Free/Evaluation Material License** for Phase 3 MVP | Free tier is scoped to evaluation/small-scale use under Live2D's own published license thresholds (their terms reference revenue/user-count, not a claim about this project's plans); re-review before productization to confirm whether a paid Cubism license is required at that point. Renderer is behind an `ICharacterRenderer` abstraction (Phase 3 ADR) specifically so the licensed SDK is swappable, not load-bearing across the whole client. |
 
 ## Pending review
 
@@ -16,6 +16,6 @@ reviewed before Phase 3 starts.
   starting Phase 1/2.
 - npm packages for the Live2D web layer and the ServiceNow SDK tooling — add
   rows as each is added to a `package.json`.
-- Azure OpenAI usage (Phase 5) is a service, not a redistributed dependency,
-  but its data-processing terms (Japan East residency) are tracked in
-  `docs/threat-model.md` §4 rather than duplicated here.
+- `IContextProvider`'s real implementation (Phase 5, ADR-0007) is not yet
+  chosen — no specific external service is committed to, so there's nothing
+  to license-track here until one is selected for real integration.

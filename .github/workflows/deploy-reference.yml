@@ -1,0 +1,39 @@
+name: deploy-reference
+
+# Continuous evidence for Definition of Done A10a: the reference deployment
+# image actually builds and the container actually starts and responds.
+# This does NOT prove A10b (the full ServiceNow -> IdP -> desktop path) -
+# see docs/definition-of-done.md. A green run here is evidence for exactly
+# the claim it makes, nothing more.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  deploy-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and start via compose
+        run: docker compose -f deploy/reference/docker-compose.yml up --build -d
+
+      - name: Wait for health endpoint
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz; then
+              echo "healthz responded"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "healthz never responded"
+          docker compose -f deploy/reference/docker-compose.yml logs
+          exit 1
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/reference/docker-compose.yml down
