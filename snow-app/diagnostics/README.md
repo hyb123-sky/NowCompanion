@@ -35,3 +35,25 @@ None. See `docs/adr/0004-cross-scope-access-tracking-mode.md`.
 
 Do not leave this active in a real deploy — it's diagnostic-only, and its
 own name says "remove before shipping" for a reason.
+
+## `scripts/`
+
+Read-only ServiceNow Background Scripts (System Definition → Scripts -
+Background), not Fluent — they're never built or deployed, only pasted
+into the UI and run by hand. Each is under 40 lines, asserts in its own
+header comment that it writes nothing, and is safe to review before
+running because of that. This is the standing pattern for PDI
+investigation going forward: Claude Code writes the script, a human runs
+it and pastes back the raw output — the credential never has to leave the
+human's session for this to work.
+
+- `sla-job-intervals.js` — Scheduled Job config/state for every job whose
+  name contains "SLA."
+- `task-sla-pause-fields.js` — raw stored fields (not display values) for
+  one `task_sla` record; set the sys_id before each run.
+- `sla-definition-survey.js` — active SLA definitions and their durations.
+
+Field/table names in these scripts are best-effort for a recent ServiceNow
+release. If a script prints blanks where data is expected, that's a signal
+the name differs on this instance — report it rather than assuming the
+script is simply broken.

@@ -7,7 +7,17 @@ export default tseslint.config(
   {
     // src/fluent/generated is SDK-authored output (keys.ts), not hand-written
     // source - linting it against our own rules is meaningless.
-    ignores: ["dist/**", "target/**", "node_modules/**", ".now/**", "src/fluent/generated/**"],
+    // diagnostics/scripts are plain ServiceNow Background Scripts, meant to
+    // run inside the platform's own script runtime (gs/GlideRecord globals
+    // that don't exist here) - not part of this Node/TS project at all.
+    ignores: [
+      "dist/**",
+      "target/**",
+      "node_modules/**",
+      ".now/**",
+      "src/fluent/generated/**",
+      "diagnostics/scripts/**",
+    ],
   },
   {
     rules: {

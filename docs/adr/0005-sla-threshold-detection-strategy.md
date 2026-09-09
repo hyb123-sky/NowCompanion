@@ -1,30 +1,124 @@
-# ADR-0005: SLA 80%-Threshold Detection Strategy
+# ADR-0005: SLA Notification Trigger Strategy
 
 - Status: **Proposed — awaiting approval. No implementation in this PR or
   any PR until this is explicitly approved.**
-- Date: 2026-09-09
+- Date: 2026-09-09 (revised same day — reframed from "detect 80%" to
+  "detect an absolute lead time before breach")
 
 ## Context
 
-The ITSM domain pack must detect when a `task_sla` record crosses 80% of
-its business-time budget, to write a `companion_outbox` notification. Three
-candidate designs were raised:
+The ITSM domain pack must decide when a `task_sla` record has become
+notification-worthy, to write a `companion_outbox` row. The original framing
+was "detect an 80%-of-budget crossing," evaluated across three candidate
+mechanisms:
 
 - **Option A** — a Business Rule on `task_sla` (`after update`) comparing
-  `current.business_percentage >= 80 && previous.business_percentage < 80`.
-- **Option B** — an independent scheduled job polling `task_sla` for
-  `business_percentage >= 80 AND has_breached=false`, with a dedupe flag.
+  the trigger condition against its previous value.
+- **Option B** — an independent scheduled job polling `task_sla`, with a
+  dedupe flag.
 - **Option C** — precompute a `fire_at` timestamp from `planned_end_time`
-  when the SLA starts; a lightweight (e.g. per-minute) scheduled job scans
-  for due rows.
+  when the SLA starts; a lightweight scheduled job scans for due rows.
 
-Every claim below is labeled **[measured]** (observed on the PDI, Australia,
-dev310526) or **[reasoned]** (derived from ServiceNow's documented/general
-SLA engine architecture, not directly observed this session). Where a claim
-depends on data not yet supplied, that's stated explicitly rather than
-filled in with a guess.
+That framing has been challenged and is revised below. Every claim is still
+labeled **[measured]** (observed on the PDI, Australia, dev310526) or
+**[reasoned]**, per the same discipline as the original version of this ADR.
 
-## What's measured so far
+## Reframing: absolute lead time, not percentage — evaluated, not just adopted
+
+**The core claim, and why I agree with it.** 80% of a 4-hour SLA is ~48
+minutes before breach — actionable. 80% of a 30-day SLA is **six days**
+before breach — not actionable as a desktop interrupt, and a notification
+nobody acts on trains the user to ignore the ones that matter. The real
+product need for a per-item push notification is an **absolute lead
+time** ("tell me 60 minutes before breach"), not a fraction of budget
+consumed. I agree with this.
+
+**A stronger piece of evidence than what was offered, worth stating
+explicitly**: the OOB scheduled jobs' *names themselves* are stated in
+absolute-time-to-breach terms — "breach within 10 min / 1 hour / 1 day / 30
+days" — not in percentage terms. **[measured, job names]** This means the
+platform's own internal model was never organized around percentage at
+all; percentage was our framing, imposed on a platform that already thinks
+in absolute time-to-breach. That's a stronger reason to prefer absolute
+lead time than "customers won't act on a 6-day-early ping" alone — it also
+means Option A stops fighting the platform's grain and starts working with
+it. This point wasn't in the original proposal and materially strengthens
+it.
+
+**Where I push back — two refinements, not a rejection.**
+
+1. **The naive `min(percentage_threshold, absolute_lead_time)` formula has
+   a correctness bug for short SLAs.** For an SLA whose total duration is
+   shorter than the configured absolute lead time (e.g., a 30-minute P1
+   response SLA against a default 60-minute lead time), "60 minutes before
+   breach" is satisfied *before the SLA even starts* — a literal `min()`
+   would fire immediately at creation, at 0% consumed. This isn't an edge
+   case to hand-wave; short-fuse SLAs are common precisely for the
+   highest-priority work, where a false-immediate notification is actively
+   harmful (it's the P1 case, not a corner case). **Proposed fix**: guard
+   the absolute-lead-time trigger to only apply when the SLA definition's
+   total business duration exceeds some multiple of the configured lead
+   time (e.g., lead time must be ≤ 50% of total duration); below that
+   threshold, fall back to a percentage trigger (80%, or configurable) for
+   *that SLA definition specifically*. This is a product-config detail, not
+   a code detail, and needs your call before PR-4, but the bug itself is
+   real and needs a decision, not silence.
+2. **Percentage is not merely "an edge feature for customers who insist"
+   — recommend keeping it first-class, off by default, not demoted.** Two
+   reasons: (a) some outsourcing/vendor SLA contracts specify
+   percentage-of-budget escalation clauses as a *contractual* term, not a
+   preference — relevant given `packs/rc` (compliance) is on the roadmap;
+   a percentage trigger might not be optional for some regulated
+   customers. (b) `business_percentage` may still be useful data for
+   Phase 5's queue-summarization AI feature (an aggregate/reporting signal)
+   even where it's the wrong mechanism for a per-item push interrupt — the
+   reframing argues against percentage *as a notification trigger*, not
+   against capturing the data at all. Recommend `companion_policy` treats
+   both trigger types as equally real, independently configurable options
+   (absolute lead time on by default, percentage off by default), not a
+   primary mechanism plus a bolted-on fallback.
+
+## Answering the four questions directly
+
+**Does absolute lead time make Option A adequate for the default
+configuration?** **[reasoned, high confidence]** Yes. The OOB tiers'
+absolute-time framing (see above) means a BR comparing
+"time-until-`planned_end_time` ≤ configured lead time" is reacting to
+exactly the dimension the platform already optimizes recalculation
+frequency around. No new scheduled job is needed for the default case.
+
+**Worst-case latency for a 60-minute lead time, and which tier governs
+it?** **[reasoned, structurally argued, quantitatively pending]** A
+60-minute-before-breach crossing sits almost exactly on the boundary
+between the "within 1 hour" and "within 1 day" tiers. Detection latency is
+bounded by whichever tier is actively recalculating the row at that
+boundary — most likely "within 1 hour," which is also one of the
+more-frequently-run tiers observed (~18,422 runs vs. ~4,208 for "30
+days"). **This will be answered numerically once `sla-job-intervals.js`
+(below) returns actual interval values** — flagged here rather than
+guessed at.
+
+**Is there a case where percentage is clearly right and absolute lead time
+is clearly wrong?** **[reasoned]** Yes, two: (a) SLAs shorter than the
+configured lead time (the bug above — percentage is the only mechanism
+that scales down correctly), and (b) contractually-mandated
+percentage-escalation clauses, where the customer's obligation is stated
+in budget-consumed terms regardless of what's "actionable." I would not
+have surfaced (b) without deliberately looking for a case against the
+reframing, which is exactly the exercise you asked for.
+
+**Do I think the reframing is mistaken?** No — the core claim holds and is
+now better-supported than when proposed. The two refinements above are
+amendments (a bug fix and a demotion-to-avoid), not disagreements with the
+premise.
+
+## Comparison — percentage-mode analysis (retained from the original framing)
+
+This section is retained because percentage remains a supported,
+first-class trigger type (see above) — it now applies specifically to
+"when percentage mode is configured for a given SLA definition,"
+particularly the short-SLA fallback case and any customer that enables it
+deliberately, rather than to the default path.
 
 **[measured]** Eight OOB scheduled jobs exist, all Ready, all in Global
 scope:
@@ -49,178 +143,60 @@ stored value.
 task to On Hold moved `stage` to Paused and froze `business_percentage`,
 but `planned_end_time` did not change — and did not change back when
 resumed, in the window observed. The SLA Async Delegator may simply not
-have run yet in that window; this is not confirmed as settled behavior.
+have run yet in that window; not confirmed as settled behavior. This
+affects both percentage-mode and absolute-lead-time-mode equally, since
+both ultimately reason about `planned_end_time`/`business_percentage`.
 
-**[reasoned, not yet confirmed]** The job list's run-count ratios (the "10
-min" tier has run ~35x as often as the "30 days" tier) are consistent with
-a tiered architecture: rows closer to breach get recalculated far more
-often than rows far from breach, and presumably migrate between tiers as
-time passes. This qualitative structure is confirmed by the job
-names/counts alone. **The exact Repeat Interval duration for each tier is
-not yet available** — pending data to be supplied separately. Until that
-arrives, no quantitative worst-case latency number below should be read as
-final; they are illustrative, and are marked as such.
+For a **30-day SLA in percentage mode** specifically: detection latency for
+an 80% crossing is bounded by the "30 days" tier's own interval (the
+coarsest short of "after 30 days") — this is the scenario the original
+framing was solving for, and it's now scoped down to "only matters when a
+customer has actually turned percentage mode on for a long SLA," not the
+default path every tenant hits.
 
-## Evaluating the "Option A degrades for long SLAs" hypothesis
+## Recommendation (revised)
 
-**[reasoned — structurally sound, quantitatively unconfirmed]** A `task_sla`
-row's tier is presumably determined by proximity to its *own* breach time,
-not by the SLA definition's total duration. A 4-hour SLA crosses 80% about
-48 minutes before breach — inside the "within 1 hour" tier. A 30-day SLA
-crosses 80% about 6 days before breach — still inside the "within 30 days"
-tier (6 days > 1 day), the *coarsest* interval short of "after 30 days."
-Under Option A (a BR reacting to whatever the OOB job actually writes),
-detection latency for a long SLA's 80% crossing is bounded by **that
-row's current tier's own interval**, not by the fine-grained tiers that
-exist for near-breach urgency. If the "within 30 days" tier's interval
-is materially coarser than the "within 1 hour" tier's (which the run-count
-ratio suggests, but doesn't quantify), the hypothesis is **confirmed in
-mechanism**, even without the exact numbers: Option A's detection latency
-is tier-dependent, and worse for SLAs that spend longer in the coarser
-tiers before crossing 80%. This is **not refuted** by anything measured so
-far; it is not yet **numerically confirmed** either.
+**Default (v1, all tenants unless configured otherwise): Option A, keyed on
+absolute lead time**, with the short-SLA guard above (fall back to
+percentage when lead time isn't meaningfully smaller than the SLA's total
+duration). No new scheduled job; a BR on `task_sla` comparing time-to-breach
+against a configurable `companion_policy` lead-time setting (default e.g.
+60 minutes, per-SLA-definition override left open for later).
 
-Decision rule once the interval numbers arrive: if the coarse tiers
-("30 days," "after 30 days") run at an interval that would make an
-80%-crossing notification arrive many minutes-to-hours late for a long SLA,
-that's a real, customer-visible latency problem under Option A. If all
-tiers turn out to run within a few minutes of each other, this concern is
-largely refuted and Option A's simplicity becomes the stronger argument.
+**Percentage as an equally real, independently configurable trigger type**
+(off by default), for the short-SLA guard case and for customers with a
+contractual/compliance need for it. When percentage mode is active on a
+long-duration SLA, **Option C's precomputed-`fire_at` idea is the correct
+implementation for that specific combination** — not a general-purpose
+replacement for Option A, a targeted answer to a scoped-down problem.
 
-## Comparison
+**Why this is different from the original recommendation (Option C
+generally)**: the original recommendation optimized for making percentage
+detection latency-independent of SLA duration, in general. The reframing
+establishes that percentage-as-a-*default*-trigger was the wrong target
+from the start; Option A resolves the default case better than Option C
+ever could (zero new infrastructure, working with the platform's own
+absolute-time model), and Option C's actual value is narrower than
+originally scoped — it matters only where percentage mode is deliberately
+enabled on a long SLA.
 
-### 1. Worst-case detection latency
+## What would change this recommendation
 
-- **Short SLA (e.g. 4-hour), Option A**: **[reasoned]** bounded by the "1
-  hour" (or finer) tier's interval — likely tight, since that tier runs
-  ~18k times observed (frequent).
-- **Short SLA, Option B**: **[reasoned]** same underlying stored-value
-  freshness as A, plus Option B's own poll interval on top — **strictly no
-  better than A**, since it reads the same field and can only react at its
-  next poll after the field is already stale by A's standard.
-- **Short SLA, Option C**: **[reasoned]** bounded by Option C's own scan
-  interval (e.g., 1 minute) — decoupled from the OOB tiering entirely,
-  since it fires off a precomputed timestamp, not the OOB-recalculated
-  percentage.
-- **30-day SLA, Option A**: **[reasoned]** bounded by the "30 days" tier's
-  interval, which — per the tiering hypothesis above — is plausibly much
-  coarser than the "1 hour" tier. **This is the tier this SLA occupies at
-  the moment of crossing 80%** (6 days before breach), so the "fine" tiers
-  never help it.
-- **30-day SLA, Option B**: **[reasoned]** same bound as A, plus its own
-  poll interval — again no better than A.
-- **30-day SLA, Option C**: **[reasoned]** unchanged from the short-SLA
-  case — Option C's latency is independent of SLA duration by design,
-  because it never depends on which OOB tier a row is in.
-
-**Provisional conclusion**: Option C is the only one of the three whose
-worst-case latency doesn't depend on SLA duration. This is the strongest
-argument in its favor and holds regardless of the still-missing interval
-numbers — it follows from C not depending on the OOB tiering mechanism at
-all for its firing decision, only for the (independent) breach calculation
-ServiceNow already owns.
-
-### 2. Behavior across pause / resume / cancel
-
-- **[measured, single observation — see caveats above]** `planned_end_time`
-  did not move on pause or resume in the one case observed.
-- **Option A**: **[reasoned]** naturally correct *if* `business_percentage`
-  itself correctly freezes during a pause (which the single observation
-  supports) — the BR simply doesn't see a crossing while paused, and
-  resumes reacting once the OOB engine resumes updating the field. No
-  extra logic needed, **provided** the stored percentage is trustworthy.
-- **Option B**: **[reasoned]** same as A — reads the same field, same
-  correctness dependency, plus its own dedupe-flag bookkeeping must also
-  handle "was above 80%, still above 80% after resume, don't re-notify."
-- **Option C**: **[reasoned]** this is where Option C is weakest as
-  described. A `fire_at` computed once from `planned_end_time` at SLA start
-  drifts **early** after any pause, if `planned_end_time` really doesn't
-  shift on resume (per the single observation) — the row would fire before
-  it should. **Investigated, not resolved**: whether `pause_duration` on
-  `task_sla` accumulates total paused business time reliably enough to
-  correct this (`fire_at' = fire_at + pause_duration`, recomputed on every
-  pause_duration change). This requires **[not yet measured]**: whether
-  `pause_duration` updates once per pause/resume cycle or continuously,
-  whether it resets or accumulates across multiple pauses on the same
-  record, and what event (a BR on `stage` transition, or on `pause_duration`
-  itself changing) would need to trigger the recompute. **Cancelled**
-  SLAs need the corresponding outbox/fire-time row suppressed/expired under
-  all three options equally — this isn't option-specific.
-
-**Provisional conclusion**: Option C is not a pure "compute once and
-forget" design — it needs a narrow, event-driven recompute step for pause/
-resume, making it a hybrid (precomputed fire time + a small BR), not a
-replacement for event-driven logic entirely. Its advantage over A is that
-the event-driven part is narrow (react to pause/resume/cancel state
-transitions) rather than broad (react to every percentage recalculation).
-
-### 3. Load added to the instance
-
-- **Option A**: **[reasoned]** effectively zero incremental load — piggybacks
-  on saves the OOB engine already performs; no new scheduled job.
-- **Option B**: **[reasoned]** a new scheduled job scanning `task_sla`,
-  cost scaling with the number of open, in-progress SLA rows per run.
-- **Option C**: **[reasoned]** also a new scheduled job, but its query is
-  narrower in shape (`fire_at <= now AND NOT fired`, indexable) than a broad
-  percentage scan — plausibly cheaper per run than B for a comparable
-  polling interval, though both are "our new job" versus A's "no new job."
-
-### 4. Sensitivity to customer SLA-engine customization
-
-- **Option A / B**: **[reasoned]** both depend on `business_percentage`
-  being kept fresh by *whatever* mechanism the customer's instance uses.
-  A customer who has heavily customized SLA definitions, disabled some OOB
-  tiers, or otherwise altered the recalculation cadence changes A/B's
-  latency in a way NowCompanion has no visibility into and cannot detect
-  from the outside.
-- **Option C**: **[reasoned]** depends on `planned_end_time` and (if the
-  pause-correction is built) `pause_duration` — more fundamental fields
-  that breach calculation itself depends on, and thus less likely to be
-  disabled even under heavy customization (a customer that breaks breach
-  calculation has bigger problems than NowCompanion's notifications). Still
-  not zero-risk: a customer using a substantially different SLA framework
-  (e.g., fully custom, not built on `contract_sla`/`task_sla` at all) breaks
-  the underlying assumption for all three options equally, not just C.
-
-### 5. Survivability across an N+1 platform upgrade
-
-- **Option A / B**: **[reasoned]** depend on `business_percentage` (or
-  equivalent) continuing to be computed and stored in roughly its current
-  form — a longstanding, foundational field, plausibly stable, though the
-  OOB job *names/tiering* could be restructured by ServiceNow without
-  breaking A/B, since neither references job names directly, only the
-  field's eventual freshness.
-- **Option C**: **[reasoned]** depends on `planned_end_time` and
-  `pause_duration` retaining their current meaning — similarly foundational.
-  Its own scheduled job is ours, so it's immune to ServiceNow renaming or
-  restructuring *its* jobs, which is a genuine (if narrow) robustness edge
-  over A/B.
-
-## Recommendation
-
-**Option C, augmented with a narrow event-driven recompute** (a BR reacting
-to `task_sla` stage transitions / `pause_duration` changes to correct
-`fire_at`), pending confirmation that `pause_duration` is reliable enough to
-support that correction.
-
-**Why**: it's the only option whose detection latency doesn't degrade for
-long SLAs — a structural property, not one that depends on the still-missing
-interval numbers. Sections 3–5 are roughly a wash across all three options,
-none decisively rules Option C out.
-
-**What would change this recommendation**:
-
-- If `pause_duration` turns out not to reliably track total paused time
-  (e.g., resets, only tracks the most recent pause, or is otherwise
-  unusable as a correction input) — Option C's pause-handling has no clean
-  data source, and I'd fall back to **Option A** with an explicit,
-  documented customer-facing caveat that notification latency varies with
-  SLA duration, rather than pretend a false precision.
-- If the still-pending interval numbers show all tiers run within a few
-  minutes of each other — the "Option A degrades for long SLAs" concern is
-  largely refuted, and **Option A's simplicity (zero new scheduled jobs, no
-  new failure mode) becomes the stronger choice**, since Option C's
-  precision would then be solving a latency problem that doesn't actually
-  exist at meaningful scale.
+- If `sla-job-intervals.js`'s output shows the "within 1 hour"/"within 1
+  day" tiers run coarser than acceptable for a 60-minute default lead time
+  (say, tens of minutes rather than a few) — the default lead time itself
+  may need to move (e.g., to 90 or 120 minutes) rather than the mechanism
+  changing; Option A would still be adequate, just configured differently.
+- If `task-sla-pause-fields.js` shows `pause_duration` doesn't reliably
+  track total paused time — Option C's percentage-mode implementation (for
+  long SLAs with percentage enabled) has no clean correction input, and
+  that narrower case would need its own fallback (likely accepting
+  imprecise latency for that specific, already-opt-in configuration,
+  rather than building a more complex correction mechanism for a
+  now-narrow use case).
+- If `sla-definition-survey.js` shows real customer SLA definitions are
+  overwhelmingly short (hours to a few days), the entire long-SLA
+  percentage/Option-C discussion becomes low-priority engineering effort
+  relative to its actual usage — worth knowing before investing in it.
 
 **No implementation until this recommendation is approved.**
