@@ -3,7 +3,11 @@
 - Status: **Proposed — awaiting approval. No implementation in this PR or
   any PR until this is explicitly approved.**
 - Date: 2026-09-09 (revised same day — reframed from "detect 80%" to
-  "detect an absolute lead time before breach")
+  "detect an absolute lead time before breach"). **Revised again
+  2026-09-11**: the diagnostic scripts were run; the tiering hypothesis the
+  reframing leaned on is withdrawn (it doesn't match this instance), the
+  core recommendation is unchanged and, if anything, reinforced by the real
+  SLA-duration survey. Recommendation still Proposed, not Accepted.
 
 ## Context
 
@@ -22,6 +26,79 @@ mechanisms:
 That framing has been challenged and is revised below. Every claim is still
 labeled **[measured]** (observed on the PDI, Australia, dev310526) or
 **[reasoned]**, per the same discipline as the original version of this ADR.
+
+## PDI script results (2026-09-11) — a correction, not a confirmation
+
+The three diagnostic scripts have now been run. **The most important result
+is negative**: the OOB tiered-job list this ADR's earlier tiering hypothesis
+was built on (`SLA Async Delegator`, and the four `SLA update (breach within
+10 min / 1 hour / 1 day / 30 days)` jobs) **does not appear in the actual
+query results against this instance.** `sla-job-intervals.js` queries
+`sysauto` for `name CONTAINS 'SLA'` — those five job names are simply not
+present, active or inactive. This isn't a query bug: two names that
+superficially matched the filter turned out to be false positives from
+naive substring matching (`AutoRetrieveTranslationsFromTMS` and `Generate
+topic path translations` match via "tran**sla**tions"; `Certificate Slack
+Notification` and `Slack Users Auto Syncing` match via "**Sla**ck") — worth
+naming as a real limitation of the script itself, not swept under the rug.
+
+**What's actually present, real SLA-related jobs only:**
+
+| Job | Class | Active | Cadence |
+|---|---|---|---|
+| SLA async queue health check | sysauto_script | yes | periodically, every 5 min |
+| Kokoro - SLA Status Update | sysauto_script | yes | periodically, every 1 min |
+| Kokoro - Daily SLA Report | sysauto_script | yes | daily |
+| [PA Incident SLA] Daily Data Collection | sysauto_pa | no | daily |
+| [PA Incident SLA] Historic Data Collection | sysauto_pa | no | on_demand |
+| temporary job for collecting Kokoro SLA Breach Rate | sysauto_pa | no | once |
+| temporary job for collecting Kokoro SLA Health Score | sysauto_pa | no | once |
+
+Only "SLA async queue health check" corroborates anything from the earlier
+list (it was named there too). "Kokoro" is not a name I recognize as OOB
+ServiceNow — these look like a pre-existing customization/demo integration
+already present on this personal PDI, not a clean baseline. **This is
+itself relevant evidence for ADR-0005's dimension 4** (sensitivity to
+customer SLA-engine customization): the one instance available for testing
+is *already* customized, which is a live example of exactly the risk that
+dimension discusses, not a hypothetical.
+
+**Consequence for the tiering hypothesis**: it is **withdrawn as stated**.
+I do not have confirmed evidence of a tiered OOB recalculation engine on
+this instance/version — the earlier reasoning built on those five absent
+jobs was wrong to present as measured, and I should have caught the
+mismatch before writing it. What's left, honestly: two real jobs run every
+1-5 minutes with names suggesting they touch SLA state ("async queue health
+check," "SLA Status Update"). If either is what actually refreshes
+`business_percentage`/`stage`, single-digit-minute latency for Option A's
+default config is plausible — **but I have not confirmed that either job
+is the thing that updates those fields**, only that they exist and run
+often. Treat the "60-minute lead time governed by the within-1-hour tier"
+claim below as superseded by this section, not layered on top of it.
+
+**`task-sla-pause-fields.js`** (one record, `03d8c106d732220035ae23c7ce6103fd`):
+`stage=in_progress`, `has_breached=1`, `business_percentage=54707.89`,
+`business_duration` ≈ 22.79 days, `planned_end_time` exactly 1 hour after
+`start_time`, `pause_duration`/`pause_time` both blank, `schedule=null`.
+**New finding, not previously known**: `business_percentage` is **not
+capped at 100%** and keeps climbing indefinitely for a breached-but-never-
+closed record (54707.89% here). This doesn't break Option A/B's
+crossing-detection logic (they fire once on the 80% crossing and don't
+re-fire), but it's a real data-shape quirk worth documenting for anything
+that reads this field as if it were bounded. **Finding 3's actual question
+(does `planned_end_time` move on pause/resume) is still not answered** —
+this record's `pause_duration`/`pause_time` are both blank, meaning it
+never went through a pause cycle; the three-part before/while-paused/after-
+resume comparison this script was designed for hasn't been run yet.
+
+**`sla-definition-survey.js`**: 13 active SLA definitions, all on
+`incident`, ranging from 15 minutes to 2 days — **none anywhere near 30
+days**. Most have a `pause_condition` set; two use an "8-5 weekdays"
+schedule, the rest run on 24/7 calendar time (`schedule` blank). This
+answers one of the "what would change this recommendation" items below
+directly: on the one real sample available, long-SLA percentage mode is
+low-priority — worth building only if a customer actually asks for it, not
+speculatively.
 
 ## Reframing: absolute lead time, not percentage — evaluated, not just adopted
 
@@ -88,15 +165,15 @@ exactly the dimension the platform already optimizes recalculation
 frequency around. No new scheduled job is needed for the default case.
 
 **Worst-case latency for a 60-minute lead time, and which tier governs
-it?** **[reasoned, structurally argued, quantitatively pending]** A
-60-minute-before-breach crossing sits almost exactly on the boundary
-between the "within 1 hour" and "within 1 day" tiers. Detection latency is
-bounded by whichever tier is actively recalculating the row at that
-boundary — most likely "within 1 hour," which is also one of the
-more-frequently-run tiers observed (~18,422 runs vs. ~4,208 for "30
-days"). **This will be answered numerically once `sla-job-intervals.js`
-(below) returns actual interval values** — flagged here rather than
-guessed at.
+it?** **Superseded — the tiering hypothesis this answer relied on has been
+withdrawn** (see "PDI script results" above; the five named tiers don't
+exist on this instance). **[measured, incomplete]** The two real,
+frequently-running SLA-adjacent jobs found cadence every 1-5 minutes; if
+either refreshes the fields Option A reads, latency is plausibly single-
+digit minutes, but this is not confirmed — neither job's actual effect on
+`business_percentage`/`stage` has been checked. This needs a direct test
+(watch a record's fields across a few minutes, or check what a job's
+script actually touches), not more querying of job metadata.
 
 **Is there a case where percentage is clearly right and absolute lead time
 is clearly wrong?** **[reasoned]** Yes, two: (a) SLAs shorter than the
@@ -120,19 +197,12 @@ first-class trigger type (see above) — it now applies specifically to
 particularly the short-SLA fallback case and any customer that enables it
 deliberately, rather than to the default path.
 
-**[measured]** Eight OOB scheduled jobs exist, all Ready, all in Global
-scope:
-
-| Job | Type | Observed run count |
-|---|---|---|
-| SLA Async Delegator | Repeat, RunScriptJob | ~1,713,001 |
-| SLA async queue health check | Repeat | ~28,602 |
-| SLA update (breach within 10 min) | Interval | ~147,157 |
-| SLA update (breach within 1 hour) | Interval | ~18,422 |
-| SLA update (breach within 1 day) | Interval | ~6,497 |
-| SLA update (breach within 30 days) | Interval | ~4,208 |
-| SLA update (already breached) | Interval | ~4,201 |
-| SLA update (breach after 30 days) | Interval | ~4,122 |
+**[withdrawn]** This section originally asserted an eight-job tiered OOB
+schedule here. That assertion did not survive an actual query against the
+instance — see "PDI script results" above for what's really there and for
+the corrected, honest state of this evidence. Left as a marker rather than
+silently deleted, so the correction is visible in the ADR's own history,
+not just in a commit message.
 
 **[measured]** `glide.sla.calculate_on_display = true` — the UI-displayed
 percentage is computed at display time and may not equal the stored
@@ -147,12 +217,16 @@ have run yet in that window; not confirmed as settled behavior. This
 affects both percentage-mode and absolute-lead-time-mode equally, since
 both ultimately reason about `planned_end_time`/`business_percentage`.
 
-For a **30-day SLA in percentage mode** specifically: detection latency for
-an 80% crossing is bounded by the "30 days" tier's own interval (the
-coarsest short of "after 30 days") — this is the scenario the original
-framing was solving for, and it's now scoped down to "only matters when a
-customer has actually turned percentage mode on for a long SLA," not the
-default path every tenant hits.
+For a **30-day SLA in percentage mode** specifically: the original argument
+(detection latency bounded by a coarse "30 days" tier) relied on the now-
+withdrawn tiering hypothesis. What still holds without it: percentage mode
+on a long SLA depends on *whatever* mechanism refreshes
+`business_percentage` for that record, at *whatever* cadence that turns out
+to be for a row far from breach — unmeasured, not assumed coarse or fine.
+Per the real SLA-definition survey (above), this scenario doesn't currently
+exist on this instance at all (no SLA definition anywhere near 30 days), so
+it's scoped down for a different reason now: not just "opt-in," but
+"unobserved in the one real sample available."
 
 ## Recommendation (revised)
 
@@ -182,21 +256,22 @@ enabled on a long SLA.
 
 ## What would change this recommendation
 
-- If `sla-job-intervals.js`'s output shows the "within 1 hour"/"within 1
-  day" tiers run coarser than acceptable for a 60-minute default lead time
-  (say, tens of minutes rather than a few) — the default lead time itself
-  may need to move (e.g., to 90 or 120 minutes) rather than the mechanism
-  changing; Option A would still be adequate, just configured differently.
-- If `task-sla-pause-fields.js` shows `pause_duration` doesn't reliably
-  track total paused time — Option C's percentage-mode implementation (for
-  long SLAs with percentage enabled) has no clean correction input, and
-  that narrower case would need its own fallback (likely accepting
-  imprecise latency for that specific, already-opt-in configuration,
-  rather than building a more complex correction mechanism for a
-  now-narrow use case).
-- If `sla-definition-survey.js` shows real customer SLA definitions are
-  overwhelmingly short (hours to a few days), the entire long-SLA
-  percentage/Option-C discussion becomes low-priority engineering effort
-  relative to its actual usage — worth knowing before investing in it.
+- **Superseded**: the original tiering-based question ("do the 1hr/1day
+  tiers run coarser than acceptable") no longer applies — those tiers
+  aren't confirmed to exist. Replaced by: **what actually refreshes
+  `business_percentage`/`stage`, and how often** — still open, needs a
+  direct test (watch fields change in real time), not job-metadata
+  inference.
+- `task-sla-pause-fields.js` was run once, on a record that never paused
+  (`pause_duration`/`pause_time` both blank) — it did not answer whether
+  `pause_duration` reliably tracks total paused time. Still open; needs
+  the original three-part before/while-paused/after-resume comparison,
+  not a single snapshot.
+- **Resolved**: `sla-definition-survey.js` shows the 13 real SLA
+  definitions on this instance range 15 minutes to 2 days, none near 30
+  days. The long-SLA percentage/Option-C discussion is confirmed
+  low-priority on this evidence — build it only if a customer actually
+  configures percentage mode on a long SLA, not speculatively ahead of
+  that.
 
 **No implementation until this recommendation is approved.**

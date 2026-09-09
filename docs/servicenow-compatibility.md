@@ -82,29 +82,30 @@ Open, tracked in ADR-0004: deploy the disabled cross-scope probe
 appears in `sys_scope_privilege` once Runtime Access Tracking is set to
 Tracking. Not done yet — needs a live PDI session.
 
-**SLA scheduled jobs observed (all Ready, all in Global scope):**
+**SLA scheduled jobs — corrected 2026-09-11.** The table that previously
+stood here (an eight-job tiered list: "SLA Async Delegator" plus four "SLA
+update (breach within X)" jobs) **did not survive an actual query against
+the instance** (`snow-app/diagnostics/scripts/sla-job-intervals.js`). Those
+five job names are not present on this PDI, active or inactive. The real,
+current jobs (all `sysauto`, queried by `name CONTAINS 'SLA'`, two
+substring false-positives via "tran**sla**tions"/"**Sla**ck" excluded):
 
-| Job | Type | Observed run count |
-|---|---|---|
-| SLA Async Delegator | Repeat, RunScriptJob | ~1,713,001 |
-| SLA async queue health check | Repeat | ~28,602 |
-| SLA update (breach within 10 min) | Interval | ~147,157 |
-| SLA update (breach within 1 hour) | Interval | ~18,422 |
-| SLA update (breach within 1 day) | Interval | ~6,497 |
-| SLA update (breach within 30 days) | Interval | ~4,208 |
-| SLA update (already breached) | Interval | ~4,201 |
-| SLA update (breach after 30 days) | Interval | ~4,122 |
+| Job | Class | Active | Cadence |
+|---|---|---|---|
+| SLA async queue health check | sysauto_script | yes | periodically, every 5 min |
+| Kokoro - SLA Status Update | sysauto_script | yes | periodically, every 1 min |
+| Kokoro - Daily SLA Report | sysauto_script | yes | daily |
+| [PA Incident SLA] Daily/Historic Data Collection | sysauto_pa | no | daily / on_demand |
+| temporary job for collecting Kokoro SLA Breach/Health Rate | sysauto_pa | no | once |
 
-This confirms the OOB SLA engine tiers recalculation by proximity to
-breach — rows closer to breaching get recalculated far more often (the "10
-min" tier's run count is ~35x the "30 days" tier's). **Exact Repeat
-Interval durations are not yet recorded here** — pending data the user is
-supplying separately. The qualitative conclusion (latency to detect an 80%
-crossing is tier-dependent, not constant) is confirmed by the job
-structure/run-count ratios alone; the quantitative worst-case bound per
-tier is not yet confirmed. See the SLA detection strategy proposal
-(`docs/adr/0005-sla-threshold-detection-strategy.md`) for what this implies
-for detection-strategy choice.
+"Kokoro" is not recognized OOB ServiceNow naming — this instance already
+carries a pre-existing customization/demo integration, which is itself a
+data point (this is not a clean baseline instance). The tiered-
+recalculation-by-proximity-to-breach claim previously made here is
+withdrawn — not confirmed by evidence, and should not have been presented
+as measured. See `docs/adr/0005-sla-threshold-detection-strategy.md`
+("PDI script results") for the full correction and what it changes about
+the SLA detection strategy recommendation.
 
 Also observed: `glide.sla.calculate_on_display = true`. The percentage
 shown in the UI is computed at display time; the **stored**
@@ -113,17 +114,22 @@ screenshot of a percentage is not evidence of the stored field's value —
 only a direct read of the stored field is.
 
 **`planned_end_time` pause/resume behavior — single observation, short
-window, NOT settled.** On one `task_sla` record: setting the parent task to
-On Hold moved `stage` to Paused and stopped `business_percentage` from
-advancing, but `planned_end_time` did not change. Setting it back to In
-Progress did not push `planned_end_time` out either, in the short window
+window, still NOT settled.** On one `task_sla` record: setting the parent
+task to On Hold moved `stage` to Paused and stopped `business_percentage`
+from advancing, but `planned_end_time` did not change. Setting it back to
+In Progress did not push `planned_end_time` out either, in the short window
 observed. Caveats that must not be dropped from this note: this is a single
-record, a short observation window, and the SLA Async Delegator (which does
-the actual recalculation work per the job list above) may simply not have
-run yet in that window — this is not confirmed settled platform behavior.
-Needs re-verification, and specifically whether `pause_duration` on
-`task_sla` tracks accumulated paused time in a way that could correct a
-precomputed fire time (`fire_at' = fire_at + pause_duration`) — see ADR-0005.
+record, a short observation window, and whatever job actually does the
+recalculation work (see the corrected job list above — not confirmed to be
+"SLA Async Delegator," which doesn't exist on this instance) may simply not
+have run yet in that window. `task-sla-pause-fields.js` was subsequently
+run once more (2026-09-11) but against a record that never paused
+(`pause_duration`/`pause_time` both blank) — it added a different finding
+(`business_percentage` is not capped at 100%, confirmed 54707.89% on an
+old breached-but-unclosed record) but did **not** add new evidence on the
+pause/resume question itself. Still needs the original three-part before/
+while-paused/after-resume comparison. See ADR-0005 for what this means for
+Option C's `pause_duration`-based correction idea.
 
 ## Current known gaps
 
