@@ -1,0 +1,35 @@
+name: guard-pdi-hygiene
+
+# Credentials themselves can never leak into git this way - they live only
+# in Windows Credential Manager / keytar, never in a file (per CLAUDE.md #2's
+# DPAPI rule, applied here too). What CAN leak is the instance identifier
+# itself (hostname, credential alias) hardcoded into source/config/CI files -
+# operationally wrong on top of being a hygiene risk, since the PDI is
+# reclaimed after ~10 days idle and any hardcoded reference to it rots.
+# docs/ is exempt (same reasoning as guard-vendor-prefix.yml): a doc that
+# can't name the PDI it's describing is useless. This file's own detection
+# line is the other sanctioned exception.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pdi-hygiene-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if a PDI hostname or credential alias is hardcoded outside docs/
+        run: |
+          set -euo pipefail
+          SELF_FILE="./.github/workflows/guard-pdi-hygiene.yml"
+          MATCHES=$(grep -rIlE --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=bin --exclude-dir=obj --exclude-dir=docs -e 'dev310526' -e '[a-zA-Z0-9-]+\.service-now\.com' . || true)
+          VIOLATIONS=$(printf '%s\n' "$MATCHES" | grep -v -x -e "$SELF_FILE" -e '' || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "A PDI hostname or credential alias must not be hardcoded outside docs/. Found it in:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
