@@ -1,0 +1,49 @@
+name: guard-ef-migration-lane
+
+# Guards against ADR-0006's empty-migration-diff check quietly never
+# getting wired up once a real DbContext/EF Core dependency lands - exactly
+# the kind of control that's easy to forget because nothing forces you to
+# add it. If any EF Core package reference or DbContext subclass appears
+# anywhere in the repo, this fails unless a CI step carrying the
+# MIGRATION_LANE_MARKER below also exists in .github/workflows. Cheap now
+# (currently a no-op, since there is no EF Core reference yet), and it
+# makes the omission impossible to forget later.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if EF Core/DbContext exists without the migration lane
+        run: |
+          set -euo pipefail
+          SELF_FILE="./.github/workflows/guard-ef-migration-lane.yml"
+          MARKER="migrations-empty-diff-check"
+
+          EF_REFS=$(grep -rIl --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=bin --exclude-dir=obj -e "Microsoft.EntityFrameworkCore" -e ": DbContext" . | grep -v -x "$SELF_FILE" || true)
+
+          if [ -z "$EF_REFS" ]; then
+            echo "No EF Core package reference or DbContext subclass found - guard not applicable yet (see docs/adr/0006-hosting-neutrality.md)."
+            exit 0
+          fi
+
+          echo "EF Core / DbContext references found:"
+          echo "$EF_REFS"
+
+          LANE=$(grep -rIl --exclude-dir=.git -e "$MARKER" ./.github/workflows | grep -v -x "$SELF_FILE" || true)
+
+          if [ -z "$LANE" ]; then
+            echo ""
+            echo "But no CI step carrying the marker '$MARKER' exists in .github/workflows."
+            echo "ADR-0006 requires an empty-migration-diff check (dotnet ef migrations add for both providers, fail on non-empty diff) once a DbContext exists. See docs/adr/0006-hosting-neutrality.md."
+            exit 1
+          fi
+
+          echo "Migration lane marker present - OK."

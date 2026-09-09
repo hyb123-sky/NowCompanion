@@ -87,6 +87,17 @@ choice below.
   data-layer lane at all as of this ADR (Phase 2 builds them). This section
   specifies what that lane must do once it exists — it is not a claim that
   it exists today.
+- **Guarded against being forgotten**: `.github/workflows/guard-ef-migration-lane.yml`
+  fails CI if any `Microsoft.EntityFrameworkCore` package reference or
+  `DbContext` subclass appears anywhere in the repo while no CI step
+  carrying the marker `migrations-empty-diff-check` exists. This is
+  deliberately the same style as `guard-vendor-prefix.yml` — a control this
+  ADR requires is exactly the kind of thing that quietly never gets wired
+  up once the pressure of shipping Phase 2 features arrives; the guard
+  makes forgetting it a CI failure instead of a silent gap. Whoever builds
+  the actual migration lane (Phase 2) must include a step whose content
+  contains that marker string — a comment is enough — for the guard to
+  recognize it.
 
 ## Secrets
 
