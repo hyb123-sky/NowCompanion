@@ -27,14 +27,21 @@ compromise security, maintainability, or enterprise deployability.
 7. Domain-agnostic core: the engine consumes the `task` hierarchy and
    `sysapproval_approver`. ITSM is a **Domain Pack** (`packs/itsm`), not the core.
    Design so `packs/hr` and `packs/rc` can be added without touching core.
-8. Cross-user isolation within a tenant is enforced server-side, not by a
-   client- or gateway-supplied identity parameter. Every `companion_outbox`
-   row carries the target user's sys_id; the Scripted REST API resolves the
-   requesting identity from the authenticated session/token, never from a
-   caller-supplied filter; the Gateway independently verifies the Entra
-   identity → ServiceNow user mapping before pushing any event to a client
-   connection. A correct tenant check (#3) does not by itself satisfy this —
-   see `docs/threat-model.md` §1.6.
+8. Cross-user isolation within a tenant does not rely on ServiceNow
+   verifying identity — under OAuth Client Credentials (#4) ServiceNow only
+   ever sees the integration service account, never a per-user session,
+   so it cannot. Every `companion_outbox` row carries the target user's
+   sys_id. The Scripted REST API accepts an Entra object ID (OID), never a
+   sys_id, and resolves it to a `sys_user` via `companion_user_map`
+   (unique both directions) before filtering the outbox — returning 403,
+   never an empty result, when the OID has no map entry. The Gateway is the
+   only source of that OID: it must come from a cryptographically validated
+   Entra access token's claims, never from a client request body, query
+   string, or any other caller-supplied input. A correct tenant check (#3)
+   does not by itself satisfy this — the whole scheme rests on the Gateway
+   getting the OID right, not on ServiceNow verifying it. See
+   `docs/adr/0003-identity-resolution-oauth-client-credentials.md` and
+   `docs/threat-model.md` §1.6.
 
 ## Repository layout (monorepo)
 ```
