@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1120" viewBox="0 0 1920 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Now Companion：三个陪伴式企业桌宠静态场景</title>
+  <desc id="desc">以深海军蓝和鼠尾草绿为主色的三幅原创桌宠概念图：安静守候、温和提醒与专注工作台。</desc>
+  <defs>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F7F9F7"/><stop offset="1" stop-color="#E8EFEB"/></linearGradient>
+    <linearGradient id="navy" x1="0" y1="0" x2=".86" y2="1"><stop stop-color="#294962"/><stop offset=".48" stop-color="#15344C"/><stop offset="1" stop-color="#0A1D2D"/></linearGradient>
+    <linearGradient id="navyBright" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#375F76"/><stop offset="1" stop-color="#10293E"/></linearGradient>
+    <linearGradient id="sage" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#B9D0B8"/><stop offset="1" stop-color="#7FA687"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="190%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#0A263A" flood-opacity=".18"/></filter>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="miniShadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#0A263A" flood-opacity=".18"/></filter>
+  </defs>
+
+  <rect width="1920" height="1120" fill="url(#canvas)"/>
+  <text x="112" y="105" fill="#17354D" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="4">NOW COMPANION</text>
+  <text x="112" y="145" fill="#6B7D86" font-family="Arial, sans-serif" font-size="20">陪伴式企业桌宠 · 静态场景方向稿</text>
+  <path d="M112 184 H1808" stroke="#D5E0D9"/>
+
+  <!-- Scene 01: ambient presence -->
+  <g transform="translate(112 244)">
+    <rect width="512" height="720" rx="34" fill="#FDFEFD" stroke="#D9E4DC"/>
+    <text x="34" y="52" fill="#7FA687" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2">01 · ENVIRONMENT</text>
+    <text x="34" y="86" fill="#17354D" font-family="Arial, sans-serif" font-size="24" font-weight="700">安静守候</text>
+    <text x="34" y="116" fill="#6D7D85" font-family="Arial, sans-serif" font-size="15">长期停留在屏幕边缘，不索取注意力。</text>
+    <rect x="34" y="154" width="444" height="475" rx="23" fill="#EAF0EC"/>
+    <path d="M34 486 C148 423 214 531 333 478 S449 471 478 445 V629 H34Z" fill="#DCE9DE"/>
+    <rect x="321" y="195" width="120" height="224" rx="15" fill="#D8E4DB"/>
+    <path d="M337 213 H425" stroke="#EEF4EF" stroke-width="8" stroke-linecap="round"/>
+    <path d="M337 235 H400" stroke="#EEF4EF" stroke-width="8" stroke-linecap="round"/>
+    <rect x="67" y="492" width="142" height="84" rx="14" fill="#F9FBF9" filter="url(#miniShadow)"/>
+    <path d="M87 518 H172 M87 539 H151" stroke="#C6D5C9" stroke-width="8" stroke-linecap="round"/>
+    <!-- resting companion -->
+    <ellipse cx="412" cy="557" rx="65" ry="15" fill="#9EB5A3" opacity=".22" filter="url(#soft)"/>
+    <path d="M350 472 C350 424 391 393 437 403 C478 412 493 449 477 492 C461 535 416 564 375 541 C354 529 345 505 350 472Z" fill="url(#navy)" filter="url(#shadow)"/>
+    <path d="M370 435 C392 410 438 408 458 430" fill="none" stroke="#6E98A6" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+    <path d="M384 473 C397 466 421 466 437 473" fill="none" stroke="#07131D" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="395" cy="468" r="4" fill="#CFE1D1"/><circle cx="426" cy="468" r="4" fill="#CFE1D1"/>
+    <circle cx="456" cy="422" r="5" fill="#8FAE91"/>
+    <text x="34" y="675" fill="#17354D" font-family="Arial, sans-serif" font-size="16" font-weight="700">状态表达</text>
+    <text x="34" y="704" fill="#6D7D85" font-family="Arial, sans-serif" font-size="14">低频呼吸 · 偶发视线漂移 · 健康点</text>
+  </g>
+
+  <!-- Scene 02: gentle proactive prompt -->
+  <g transform="translate(704 244)">
+    <rect width="512" height="720" rx="34" fill="#FDFEFD" stroke="#D9E4DC"/>
+    <text x="34" y="52" fill="#C38C48" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2">02 · ATTENTION</text>
+    <text x="34" y="86" fill="#17354D" font-family="Arial, sans-serif" font-size="24" font-weight="700">温和提醒</text>
+    <text x="34" y="116" fill="#6D7D85" font-family="Arial, sans-serif" font-size="15">只在值得处理时，向工作区内侧轻声提示。</text>
+    <rect x="34" y="154" width="444" height="475" rx="23" fill="#EDF2EE"/>
+    <rect x="64" y="193" width="266" height="170" rx="21" fill="#FFFFFF" filter="url(#shadow)"/>
+    <rect x="84" y="216" width="34" height="34" rx="12" fill="#F5E6C7"/>
+    <path d="M101 224 v12 M95 230 h12" stroke="#BD8540" stroke-width="2" stroke-linecap="round"/>
+    <text x="132" y="230" fill="#17354D" font-family="Arial, sans-serif" font-size="14" font-weight="700">有一项工作值得关注</text>
+    <text x="84" y="278" fill="#64767F" font-family="Arial, sans-serif" font-size="13">SLA 将在 20 分钟后到期</text>
+    <rect x="84" y="304" width="111" height="34" rx="17" fill="#17354D"/>
+    <text x="102" y="326" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="12" font-weight="700">查看详情</text>
+    <text x="218" y="326" fill="#71848B" font-family="Arial, sans-serif" font-size="12">稍后提醒</text>
+    <!-- cue path and companion -->
+    <path d="M328 414 C368 391 406 389 444 412" fill="none" stroke="#D9B06E" stroke-width="3" stroke-linecap="round" stroke-dasharray="3 10"/>
+    <path d="M323 487 C322 433 365 399 415 408 C464 417 482 459 465 506 C448 553 390 572 348 544 C330 531 322 511 323 487Z" fill="url(#navyBright)" filter="url(#shadow)"/>
+    <path d="M347 447 C371 420 419 419 444 444" fill="none" stroke="#80A4AD" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+    <ellipse cx="376" cy="481" rx="13" ry="15" fill="#07131D"/><ellipse cx="416" cy="481" rx="13" ry="15" fill="#07131D"/>
+    <circle cx="379" cy="475" r="3.5" fill="#D8E8D8"/><circle cx="419" cy="475" r="3.5" fill="#D8E8D8"/>
+    <path d="M325 531 C350 559 429 576 465 523" fill="none" stroke="#E5B96C" stroke-width="4" stroke-linecap="round" opacity=".72"/>
+    <text x="34" y="675" fill="#17354D" font-family="Arial, sans-serif" font-size="16" font-weight="700">状态表达</text>
+    <text x="34" y="704" fill="#6D7D85" font-family="Arial, sans-serif" font-size="14">一次琥珀流线 · 清楚原因 · 可稍后处理</text>
+  </g>
+
+  <!-- Scene 03: user-opened workspace -->
+  <g transform="translate(1296 244)">
+    <rect width="512" height="720" rx="34" fill="#FDFEFD" stroke="#D9E4DC"/>
+    <text x="34" y="52" fill="#456F82" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="2">03 · WORKSPACE</text>
+    <text x="34" y="86" fill="#17354D" font-family="Arial, sans-serif" font-size="24" font-weight="700">共同工作</text>
+    <text x="34" y="116" fill="#6D7D85" font-family="Arial, sans-serif" font-size="15">用户主动展开，角色与任务信息保持同屏共存。</text>
+    <rect x="34" y="154" width="444" height="475" rx="23" fill="#0D2435"/>
+    <rect x="57" y="177" width="398" height="429" rx="17" fill="#F9FBF9"/>
+    <path d="M57 194 Q57 177 74 177 H438 Q455 177 455 194 V282 H57Z" fill="#17354D"/>
+    <text x="82" y="207" fill="#A9C7B0" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1.5">TODAY'S FOCUS</text>
+    <text x="82" y="238" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="17" font-weight="700">审批与 SLA 概览</text>
+    <!-- compact companion --><path d="M381 199 C398 184 425 192 434 213 C444 236 426 256 404 255 C381 254 367 224 381 199Z" fill="url(#sage)"/>
+    <ellipse cx="397" cy="218" rx="4" ry="5" fill="#10293E"/><ellipse cx="418" cy="218" rx="4" ry="5" fill="#10293E"/>
+    <rect x="82" y="306" width="348" height="65" rx="13" fill="#EEF4EF"/>
+    <circle cx="105" cy="338" r="10" fill="#8FAE91"/><text x="127" y="331" fill="#17354D" font-family="Arial, sans-serif" font-size="13" font-weight="700">等待你的审批</text><text x="127" y="351" fill="#708089" font-family="Arial, sans-serif" font-size="11">1 个项目 · 今天 16:00 前</text>
+    <rect x="82" y="384" width="348" height="65" rx="13" fill="#FFF8EC"/>
+    <circle cx="105" cy="416" r="10" fill="#E5B96C"/><text x="127" y="409" fill="#17354D" font-family="Arial, sans-serif" font-size="13" font-weight="700">接近 SLA 阈值</text><text x="127" y="429" fill="#708089" font-family="Arial, sans-serif" font-size="11">剩余 20 分钟 · 已准备摘要</text>
+    <rect x="82" y="482" width="348" height="85" rx="14" fill="#F1F5F2"/>
+    <text x="103" y="514" fill="#5F747E" font-family="Arial, sans-serif" font-size="12">你可以直接问我：</text>
+    <text x="103" y="544" fill="#17354D" font-family="Arial, sans-serif" font-size="13" font-weight="700">“先处理哪一项？”</text>
+    <text x="34" y="675" fill="#17354D" font-family="Arial, sans-serif" font-size="16" font-weight="700">状态表达</text>
+    <text x="34" y="704" fill="#6D7D85" font-family="Arial, sans-serif" font-size="14">角色缩小陪伴 · 任务聚焦 · 非全屏聊天</text>
+  </g>
+
+  <text x="112" y="1032" fill="#64767F" font-family="Arial, sans-serif" font-size="14">原创概念 · 视觉关键词：方向感、圆滑、安静、可信、可感知</text>
+  <circle cx="1778" cy="1027" r="8" fill="#8FAE91"/><text x="1800" y="1033" fill="#64767F" font-family="Arial, sans-serif" font-size="13">Now Companion</text>
+</svg>
