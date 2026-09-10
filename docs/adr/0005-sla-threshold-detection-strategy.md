@@ -10,7 +10,15 @@
   SLA-duration survey. **Revised a third time, same investigation**: the
   withdrawal itself was wrong — see "Correction to the correction" below.
   Finding 3 (pause/resume) is now resolved on a clean record; see "Finding 3
-  resolved" below. Recommendation still Proposed, not Accepted.
+  resolved" below. **Revised a fourth time**: `sys_trigger` re-queried,
+  tiering table restored with real intervals; a per-record one-shot breach
+  timer discovered in the same queue — the platform implements Option C
+  itself, which changes the recommended default *mechanism* (see "The
+  platform implements Option C itself" below; Recommendation updated
+  accordingly). Finding 3's Conclusion 1 downgraded — the test ran entirely
+  outside the attached schedule's business hours, so it cannot distinguish
+  "`planned_end_time` never moves" from "nothing happened that would move
+  it." Recommendation still Proposed, not Accepted.
 
 ## Context
 
@@ -153,32 +161,112 @@ if wrong (the same mistake that produced this whole detour), it dumps every
 field present on each matching row so the mapping can be read off real
 output.
 
-**Status of the tiering table as of this revision**: `sla-trigger-queue.js`
-has been written but **not yet run**. The table below is **not** re-asserted
-as measured — it restores the *shape* of the original report (which the
-user's screenshot corroborates, table-level, as real) but the exact
-per-tier repeat intervals still require this instance's own
-`sys_trigger` data before they can be called measured again.
+**Status of the tiering table: restored, measured.** `sla-trigger-queue.js`
+has been run against `sys_trigger`. Real repeat intervals (`repeat` stores
+a duration from epoch):
 
-| Job (as shown in the "Schedule" list) | Trigger type | Repeat interval |
+| Job | Repeat interval | Window |
 |---|---|---|
-| SLA Async Delegator | — | *pending sla-trigger-queue.js output* |
-| SLA update (breach within 10 min) | — | *pending* |
-| SLA update (breach within 1 hour) | — | *pending* |
-| SLA update (breach within 1 day) | — | *pending* |
-| SLA update (breach within 30 days) | — | *pending* |
-| SLA update (already breached) | — | *pending* |
-| SLA update (breach after 30 days) | — | *pending* |
-| SLA async queue health check | — | *pending* |
+| SLA Async Delegator | 5 seconds | async queue |
+| SLA update (breach within 10 min) | 1 minute | 1–10 min ahead |
+| SLA update (breach within 1 hour) | 10 minutes | 10–60 min ahead |
+| SLA update (breach within 1 day) | 1 hour | 1–24 h ahead |
+| SLA update (breach within 30 days) | 1 day | 1–30 days ahead |
+| SLA update (breach after 30 days) | 5 days | 30–365 days ahead |
+| SLA update (already breached) | 1 day | past 365 days |
+| SLA async queue health check | 5 minutes | — |
 
-**[measured — user's screenshot of this instance's `sys_trigger` list,
-pending my own re-query]**: these eight rows exist, by name, on this
-instance. **[pending]**: their trigger types and repeat intervals, until
-`sla-trigger-queue.js` is run and pasted back. Until then, treat "Worst-case
-latency for a 60-minute lead time" below as still open on the *tiering*
-question specifically (separate from the two "Kokoro"/health-check jobs
-found by the withdrawn-script's `sysauto` half, which remain real and
-independently relevant per the section below).
+**[measured]** A 60-minute lead time sits **exactly on the boundary**
+between the 10-minute-interval job (governs 1–10 min ahead) and the
+10-minute-interval-within-hourly job (10–60 min ahead) — worst-case latency
+for a crossing detected purely by these recalculation jobs approaches an
+hour. **This table describes recalculation cadence for `business_percentage`
+and similar fields, not breach detection latency for our own trigger** — see
+the next section for why that distinction turned out to matter more than
+this table alone suggests.
+
+## The platform implements Option C itself — this changes the recommendation
+
+The same `sys_trigger` query that restored the tiering table above also
+surfaced a row that does not belong to the tiered-recalculation set at all:
+
+```
+name: SLA breach timer - INC0010003 - Priority 2 resolution (8 hour)
+trigger_type: 0            (one-shot)
+document: task_sla
+document_key: f579b2a4...  (the exact SLA under test in "Finding 3 resolved")
+script: new TaskSLA('f579b2a4...').breachTimerExpired();
+next_action: 2026-09-10 23:00:00   (equals planned_end_time exactly)
+sys_created_on: 2026-09-10 05:30:22 (the moment the record was resumed)
+run_count: 0
+```
+
+**[measured]** This is a per-record, one-shot `sys_trigger` (`trigger_type:
+0`), scheduled at exactly `planned_end_time`, that calls
+`TaskSLA(sys_id).breachTimerExpired()` directly. **This ADR's earlier
+sections conflated two different mechanisms that the platform keeps
+separate**: the tiered jobs above recalculate `percentage`/
+`business_percentage` at proximity-dependent cadence, but breach
+*detection itself* is not driven by that recalculation cadence at all — it
+is driven by this per-record one-shot timer, precomputed once and fired
+exactly on schedule. **ServiceNow implements Option C itself.** Option C
+was proposed in this ADR's original framing as a targeted workaround for
+one narrow case (percentage mode on a long SLA); it is in fact the
+platform's own general-purpose pattern for knowing precisely when an SLA
+will breach.
+
+**Consequences, worked through here rather than left implicit:**
+
+- **Our lead-time trigger should follow the same pattern**: a one-shot
+  scheduled item at `fire_at = planned_end_time − effective_lead`, not a
+  Business Rule reacting to whatever cadence the tiered recalculation jobs
+  happen to run at. Under that design, latency becomes **seconds**
+  (scheduler dispatch overhead), independent of which tier's interval would
+  otherwise have governed it — the "approaches an hour" worst case in the
+  restored tiering table above is what Option A alone would have inherited,
+  and mirroring the platform's own pattern avoids inheriting it at all.
+- **`planned_end_time` is dependable as an absolute, schedule-aware fire
+  time.** The platform stakes its *own* breach detection on this exact
+  field, at exact-timestamp precision — this is stronger confirmation than
+  anything this ADR could establish by testing it independently. Conclusion
+  4 from "Finding 3 resolved" (schedule-awareness observed but mechanism
+  unverified) stands as an observation either way; this finding raises
+  confidence that the field is safe to build on regardless of whether the
+  derivation mechanism itself is ever fully understood.
+- **The breach timer was created at 05:30:22 — exactly the resume
+  timestamp.** This strongly suggests the platform **recreates** the breach
+  timer on resume rather than adjusting a pre-existing one in place.
+  **Investigate, do not assert**: if our own design mirrors that
+  (recreate/reschedule the one-shot fire item on resume, rather than
+  correcting an existing one with `pause_duration`), the pending multi-pause
+  accumulation question from "Finding 3 resolved" may not need answering at
+  all — there would be nothing to accumulate if each resume simply issues a
+  fresh one-shot item computed from the then-current `planned_end_time`.
+  This needs a direct test (a record paused and resumed more than once,
+  watching whether a new `sys_trigger` row appears each time or the
+  existing one is updated), not inference from this single observation.
+- **Open question, not yet answered**: can a scoped app create and manage
+  one-shot `sys_trigger` records directly, or is **Scheduled Script
+  Execution** (`sysauto_script`) the actually-supported route for
+  scoped-app code? This cannot be answered by a Background Script test —
+  Background Scripts execute as System/admin, bypassing the ACLs and
+  cross-scope restrictions a real scoped-app Business Rule or Script
+  Include would run under (the same design-time-vs-runtime distinction this
+  ADR's Finding 1 already established for `sys_scope_privilege` — a
+  Background Script succeeding proves nothing about what `x_1821654_buddy`
+  itself is permitted to do). Answering this needs a **scoped** probe
+  deployed through the SDK, the same pattern as
+  `snow-app/diagnostics/cross-scope-br-probe.now.ts`, not a pasted script.
+  That probe is out of scope for PR-2 (tables only) and belongs with
+  Phase 4's SLA trigger implementation — noted here as a known next step,
+  not built ahead of when it's needed.
+
+This finding does not change the short-SLA clamp or the percentage-vs-
+absolute-lead-time default split — both stand independently. It changes
+*how* the absolute-lead-time trigger should be implemented: a precomputed
+one-shot fire item (Option C's mechanism), not a Business Rule reacting to
+platform recalculation cadence (Option A as originally conceived). See
+"Recommendation (revised)" below for the updated default.
 
 ## Reframing: absolute lead time, not percentage — evaluated, not just adopted
 
@@ -238,24 +326,28 @@ it.
 ## Answering the four questions directly
 
 **Does absolute lead time make Option A adequate for the default
-configuration?** **[reasoned, high confidence]** Yes. The OOB tiers'
-absolute-time framing (see above) means a BR comparing
-"time-until-`planned_end_time` ≤ configured lead time" is reacting to
-exactly the dimension the platform already optimizes recalculation
-frequency around. No new scheduled job is needed for the default case.
+configuration?** **Revised** (see "The platform implements Option C
+itself" above) — absolute lead time is still the right default *trigger
+type*, but Option A alone (a BR comparing against recalculated fields) is
+not the right *mechanism*: it inherits the tiered jobs' up-to-an-hour worst
+case. **[measured]** The platform's own breach detection uses a one-shot
+scheduled item at `planned_end_time`, not a comparison against
+periodically-recalculated state. A BR is still needed, but to
+schedule/reschedule that one-shot item on `planned_end_time` changes, not
+to do the threshold comparison itself on every update.
 
 **Worst-case latency for a 60-minute lead time, and which tier governs
-it?** **Reopened** (see "Correction to the correction" above) — a same-day
-revision withdrew the tiering hypothesis on the strength of a query that
-was itself wrong; the five named tiers are real, by name, on this
-instance. **[pending]** Exact repeat intervals await
-`sla-trigger-queue.js`'s output. Separately, **[measured, incomplete]**:
-two other real, frequently-running SLA-adjacent jobs ("Kokoro" cadence,
-every 1-5 minutes) were also found; if either refreshes the fields Option A
-reads, latency is plausibly single-digit minutes, but this is unconfirmed —
-neither job's actual effect on `business_percentage`/`stage` has been
-checked. Both lines of evidence need to converge before this question is
-answered numerically.
+it?** **Answered, and the answer changed the design** (see "The platform
+implements Option C itself" above). **[measured]** If our trigger were
+implemented as Option A originally conceived — a BR reacting to whatever
+cadence the tiered recalculation jobs run at — a 60-minute lead sits
+exactly on the boundary between the 1-minute-interval "within 10 min" job
+and the 10-minute-interval "within 1 hour" job, giving a worst case
+approaching an hour. **That is not how the platform itself detects
+breach**: it schedules a one-shot `sys_trigger` per record at exactly
+`planned_end_time`. Mirroring that pattern for our own `fire_at` makes
+latency a matter of scheduler dispatch overhead — seconds — independent of
+the tiered jobs entirely.
 
 **Is there a case where percentage is clearly right and absolute lead time
 is clearly wrong?** **[reasoned]** Yes, two: (a) SLAs shorter than the
@@ -338,12 +430,24 @@ states (in_progress → paused → resumed):
 | business_time_left | 08:00:00 | 08:00:00 | 08:00:00 |
 | start_time | 2026-09-10 05:23:37 | same | same |
 
-**Conclusion 1 — `planned_end_time` does not move on pause or resume.**
-Confirmed on a clean record (the earlier breached-record observation is
-superseded, not corroborating — it proved nothing, as noted above). A naive
-`fire_at` derived once from `planned_end_time` and never revisited drifts
-**early** by exactly the pause duration, because the deadline it's counting
-down to never moved even though real progress toward it stopped.
+**Conclusion 1 — downgraded: measured outside the schedule window, behavior
+during business hours unverified.** The entire three-state test ran at
+05:23–05:30, and `business_percentage`/`business_duration` stayed at 0
+throughout (see Conclusion 3) — meaning **no business time was ever
+consumed or paused during this test**, on this record's attached schedule.
+"`planned_end_time` did not move" may simply be the correct, unsurprising
+consequence of zero business time elapsing, not evidence about what
+happens when real business time *is* paused and resumed. This does not
+mean the original conclusion is wrong — it means this test cannot
+distinguish "doesn't move, full stop" from "doesn't move because nothing
+happened to move it." **Do not build the `fire_at` correction design below
+on this conclusion alone** until a same test is run with the pause/resume
+occurring inside business hours, so real business time actually accrues
+and is actually paused. A naive `fire_at` derived once from
+`planned_end_time` and never revisited would still drift early by the
+pause duration *if* `planned_end_time` turns out to hold steady during
+business hours too — that consequence is unchanged, only the confidence in
+the premise is downgraded.
 
 **Conclusion 2 — `pause_duration` materializes only on resume.** It's
 blank throughout the paused state and only appears once `stage` returns to
@@ -419,31 +523,55 @@ short-SLA/percentage fallback that uses it)**:
   it manually across cycles" is exactly the pending multi-pause question
   above — **do not implement the correction formula until that's answered**.
 
-## Recommendation (revised)
+## Recommendation (revised a second time — mechanism, not just default)
 
-**Default (v1, all tenants unless configured otherwise): Option A, keyed on
-absolute lead time**, with the short-SLA guard above (fall back to
-percentage when lead time isn't meaningfully smaller than the SLA's total
-duration). No new scheduled job; a BR on `task_sla` comparing time-to-breach
-against a configurable `companion_policy` lead-time setting (default e.g.
-60 minutes, per-SLA-definition override left open for later).
+**Default (v1, all tenants unless configured otherwise): absolute lead
+time, implemented as a precomputed one-shot fire item — Option C's
+mechanism, not Option A's.** This supersedes the immediately-prior version
+of this recommendation, which kept Option A's "BR reacting to platform
+recalculation cadence" as the default and confined Option C to long-SLA
+percentage mode only. "The platform implements Option C itself" (above)
+is why: mirroring the platform's own one-shot-timer-at-`planned_end_time`
+pattern gives seconds-level latency independent of the tiered jobs, where
+Option A as originally conceived would have inherited their up-to-an-hour
+worst case. `fire_at = planned_end_time − effective_lead`, recomputed on
+resume per "Finding 3 resolved" above (and possibly *recreated* rather than
+corrected in place — see the investigate-don't-assert note above). The
+short-SLA guard (fall back to percentage when lead time isn't meaningfully
+smaller than the SLA's total duration) is unchanged by this revision.
+
+**A Business Rule on `task_sla` is still needed, but for a narrower job**:
+detecting `planned_end_time` changes (creation, resume, any recalculation)
+and (re)scheduling the one-shot fire item accordingly — not for comparing
+time-to-breach against the lead time on every update, which was Option A's
+original job and is no longer the detection mechanism itself.
 
 **Percentage as an equally real, independently configurable trigger type**
 (off by default), for the short-SLA guard case and for customers with a
-contractual/compliance need for it. When percentage mode is active on a
-long-duration SLA, **Option C's precomputed-`fire_at` idea is the correct
-implementation for that specific combination** — not a general-purpose
-replacement for Option A, a targeted answer to a scoped-down problem.
+contractual/compliance need for it. Percentage mode still depends on
+`business_percentage`'s own refresh cadence (the tiered jobs, restored
+above) — that part of the original analysis is unaffected by this
+revision, since percentage detection genuinely does poll a
+periodically-recalculated field, unlike absolute-lead-time detection.
 
-**Why this is different from the original recommendation (Option C
-generally)**: the original recommendation optimized for making percentage
-detection latency-independent of SLA duration, in general. The reframing
-establishes that percentage-as-a-*default*-trigger was the wrong target
-from the start; Option A resolves the default case better than Option C
-ever could (zero new infrastructure, working with the platform's own
-absolute-time model), and Option C's actual value is narrower than
-originally scoped — it matters only where percentage mode is deliberately
-enabled on a long SLA.
+**Why this is different from both prior versions of this
+recommendation**: the first version (Option C generally) optimized for
+percentage-latency-independence; the reframing correctly demoted that.
+The second version (Option A as default) was right that percentage
+shouldn't be the default *trigger type*, but wrong about *how* to
+implement the absolute-lead-time default — it assumed working "with the
+platform's grain" meant reacting to its recalculation cadence, when the
+platform's actual grain for precise breach timing is a one-shot precomputed
+timer. This revision keeps the default trigger *type* (absolute lead time)
+and changes only the implementation *mechanism* to match what's now
+measured, not reasoned about, from the platform's own scheduler queue.
+
+**Open before this can move to Accepted**: whether a scoped app can create
+and manage a one-shot `sys_trigger` directly or must go through Scheduled
+Script Execution (`sysauto_script`) instead — see "The platform implements
+Option C itself" above. This is a Phase 4 implementation question, not a
+PR-2 blocker, but it must be answered with a scoped probe (not a
+Background Script) before this recommendation is implemented.
 
 ## The short-SLA clamp is the primary path, not an edge case
 

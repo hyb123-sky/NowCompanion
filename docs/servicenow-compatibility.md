@@ -98,13 +98,18 @@ by name. See `docs/adr/0005-sla-threshold-detection-strategy.md`
 inference ("my query found nothing" → "these jobs don't exist") was itself
 the deeper error, not just the query bug.
 
-`snow-app/diagnostics/scripts/sla-trigger-queue.js` now queries
-`sys_trigger` directly (no join back to `sysauto`) and has been written but
-**not yet run** — real repeat intervals are pending its output, not
-restored here yet. Separately, the two real `sysauto`-side jobs the
-withdrawn script *did* correctly find remain real and independently
-relevant (queried by `name CONTAINS 'SLA'`, two substring false-positives
-via "tran**sla**tions"/"**Sla**ck" excluded):
+`snow-app/diagnostics/scripts/sla-trigger-queue.js` has now been run
+against `sys_trigger` directly (no join back to `sysauto`). Real repeat
+intervals, and a finding that changes the SLA trigger design, are recorded
+in `docs/adr/0005-sla-threshold-detection-strategy.md` ("The platform
+implements Option C itself"): the tiered jobs recalculate percentage-type
+fields on the intervals shown there, but breach detection itself is driven
+by a separate, per-record **one-shot** `sys_trigger` scheduled at exactly
+`planned_end_time` — the platform's own equivalent of this ADR's "Option
+C." Separately, the two real `sysauto`-side jobs the earlier, since-reversed
+withdrawal *did* correctly find remain real and independently relevant
+(queried by `name CONTAINS 'SLA'`, two substring false-positives via
+"tran**sla**tions"/"**Sla**ck" excluded):
 
 | Job | Class | Active | Cadence |
 |---|---|---|---|
@@ -124,14 +129,19 @@ shown in the UI is computed at display time; the **stored**
 screenshot of a percentage is not evidence of the stored field's value —
 only a direct read of the stored field is.
 
-**`planned_end_time` pause/resume behavior — resolved on a clean record.**
-The single-record, breached-record observation previously noted here
-proved nothing (a record that already breached and never closed isn't a
-clean test). It has since been tested properly, three states
-(in_progress → paused → resumed) on one never-breached record with a real
-schedule attached. Full data and conclusions are in
+**`planned_end_time` pause/resume behavior — tested, but the test ran
+outside business hours, so the headline conclusion is downgraded.** The
+single-record, breached-record observation previously noted here proved
+nothing (a record that already breached and never closed isn't a clean
+test). It has since been tested properly, three states (in_progress →
+paused → resumed) on one never-breached record with a real schedule
+attached — but the whole test ran at a time of day outside that schedule's
+business hours, so zero business time ever accrued or was paused. Full
+data and conclusions, including this downgrade, are in
 `docs/adr/0005-sla-threshold-detection-strategy.md` ("Finding 3 resolved");
-summarized: `planned_end_time` does not move on pause or resume;
+summarized: `planned_end_time` did not move in this test, but that may
+simply reflect that nothing happened to move it — behavior during real
+business hours is unverified, a re-test is planned;
 `pause_duration` materializes only once resumed, never while paused;
 `percentage` (calendar-based) and `business_percentage` (schedule-based,
 and separately confirmed uncapped past 100%) diverge severely and both need
