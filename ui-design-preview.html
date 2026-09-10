@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Now Companion — UI Design Preview</title>
+  <style>
+    :root {
+      --ink: #07131d;
+      --navy: #102940;
+      --sage: #8bad87;
+      --sage-light: #dcebdc;
+      --mist: #eff4f1;
+      --muted: #91a1ab;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      color: var(--mist);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 50% 46%, rgba(140, 178, 145, .14), transparent 23rem),
+        radial-gradient(circle at 12% 12%, #214360 0, transparent 34rem),
+        #07131d;
+    }
+
+    .desktop-glow {
+      position: fixed;
+      width: 42rem;
+      height: 42rem;
+      border: 1px solid rgba(206, 239, 215, .08);
+      border-radius: 50%;
+      filter: blur(1px);
+      pointer-events: none;
+    }
+
+    .companion {
+      position: relative;
+      width: min(430px, calc(100vw - 32px));
+      min-height: 670px;
+      padding: 24px;
+      isolation: isolate;
+      border: 1px solid rgba(234, 250, 242, .22);
+      border-radius: 34px;
+      background: linear-gradient(145deg, #17354e 0%, #0b1c2a 47%, #071016 100%);
+      box-shadow: 0 28px 90px rgba(0, 0, 0, .55), inset 0 1px rgba(255, 255, 255, .12);
+    }
+    .companion::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(115deg, rgba(255, 255, 255, .10), transparent 28%);
+      pointer-events: none;
+    }
+
+    header, .status-copy, .actions { display: flex; align-items: center; }
+    header { justify-content: space-between; }
+    .brand { display: flex; gap: 10px; align-items: center; }
+    .brand-mark {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--sage);
+      box-shadow: 0 0 16px 4px rgba(139, 173, 135, .4);
+    }
+    .eyebrow {
+      margin: 0 0 4px;
+      color: #e1ebe6;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .16em;
+    }
+    .subtitle { margin: 0; color: var(--muted); font-size: 11px; }
+    .menu {
+      width: 35px;
+      height: 28px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 14px;
+      color: #e1ebe6;
+      background: rgba(255, 255, 255, .055);
+      font-size: 16px;
+      line-height: 18px;
+    }
+
+    .orb-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 414px;
+      margin: 3px 0 -2px;
+    }
+    .orbit, .orb, .core, .face { position: absolute; border-radius: 50%; }
+    .orbit.one {
+      width: 289px; height: 289px;
+      border: 1px solid rgba(232, 250, 235, .12);
+      box-shadow: 0 0 35px rgba(126, 183, 138, .16);
+    }
+    .orbit.two {
+      width: 248px; height: 248px;
+      border: 2px dotted rgba(141, 188, 148, .35);
+      transform: rotate(-23deg);
+      animation: orbit 18s linear infinite;
+    }
+    .orb {
+      width: 214px; height: 214px;
+      overflow: hidden;
+      border: 1px solid rgba(191, 230, 206, .3);
+      background: radial-gradient(circle at 34% 23%, #31516a 0, #102839 30%, #061017 65%, #010304 100%);
+      box-shadow: 0 18px 23px rgba(0, 0, 0, .52), 0 0 34px rgba(110, 187, 133, .14), inset 16px 16px 32px rgba(116, 176, 195, .12);
+    }
+    .orb::before {
+      content: "";
+      position: absolute;
+      inset: 16px;
+      border: 1px solid rgba(255, 255, 255, .10);
+      border-radius: inherit;
+    }
+    .orb::after {
+      content: "";
+      position: absolute;
+      width: 73px; height: 20px;
+      top: 26px; left: 42px;
+      border-radius: 50%;
+      background: linear-gradient(90deg, rgba(203, 255, 225, .18), transparent);
+      filter: blur(7px);
+      transform: rotate(-30deg);
+    }
+    .core { width: 114px; height: 114px; background: #010507; box-shadow: inset 0 0 22px #000; }
+    .face {
+      z-index: 2;
+      width: 82px; height: 47px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      border: 1px solid rgba(166, 211, 217, .28);
+      border-radius: 24px;
+      background: #101f2a;
+      box-shadow: 0 8px 15px rgba(0, 0, 0, .56), inset 0 1px rgba(255, 255, 255, .05);
+    }
+    .eye {
+      position: relative;
+      width: 21px; height: 21px;
+      border-radius: 50%;
+      background: #02070b;
+      box-shadow: 0 0 10px rgba(181, 239, 196, .18);
+    }
+    .eye::after {
+      content: "";
+      position: absolute;
+      top: 5px; left: 6px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: #c8ead0;
+      box-shadow: 0 0 6px #c8ead0;
+    }
+    .clear-pill {
+      position: absolute;
+      bottom: 37px;
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      padding: 8px 13px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 20px;
+      color: #e3f0e6;
+      background: rgba(5, 18, 26, .66);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      backdrop-filter: blur(9px);
+    }
+    .clear-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); box-shadow: 0 0 8px var(--sage); }
+
+    .status-card {
+      padding: 15px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 19px;
+      background: rgba(255, 255, 255, .045);
+      box-shadow: inset 0 1px rgba(255, 255, 255, .035);
+    }
+    .status-copy { justify-content: space-between; gap: 12px; }
+    h1 { margin: 0; font-size: 15px; letter-spacing: -.01em; }
+    .status-card p { margin: 5px 0 0; color: #a0afb7; font-size: 11.5px; }
+    .now { color: var(--sage); font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+
+    .actions { gap: 10px; margin-top: 16px; }
+    .action {
+      flex: 1;
+      min-height: 39px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 15px;
+      color: #e6eeeb;
+      background: rgba(255, 255, 255, .065);
+      font: 600 12px inherit;
+      transition: transform .2s, background .2s, border-color .2s;
+    }
+    .action:hover { border-color: rgba(184, 225, 190, .65); background: rgba(128, 177, 135, .23); transform: translateY(-2px); }
+    .action:active { transform: translateY(0); }
+    .hint { margin: 17px 0 0; color: #627783; text-align: center; font-size: 10px; }
+    @keyframes orbit { to { transform: rotate(337deg); } }
+    @media (prefers-reduced-motion: reduce) { .orbit.two { animation: none; } }
+    @media (max-height: 730px) { .companion { min-height: 620px; } .orb-stage { height: 370px; } .clear-pill { bottom: 19px; } }
+  </style>
+</head>
+<body>
+  <div class="desktop-glow" aria-hidden="true"></div>
+  <main class="companion" aria-label="Now Companion 桌宠 UI 视觉预览">
+    <header>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">NOW COMPANION</p>
+          <p class="subtitle">安静地为你守候</p>
+        </div>
+      </div>
+      <button class="menu" aria-label="更多选项">•••</button>
+    </header>
+
+    <section class="orb-stage" aria-label="黑洞风格桌宠，当前状态正常">
+      <div class="orbit one" aria-hidden="true"></div>
+      <div class="orbit two" aria-hidden="true"></div>
+      <div class="orb" aria-hidden="true"></div>
+      <div class="core" aria-hidden="true"></div>
+      <div class="face" aria-hidden="true"><span class="eye"></span><span class="eye"></span></div>
+      <div class="clear-pill"><i></i>一切正常</div>
+    </section>
+
+    <section class="status-card" aria-label="工作区状态">
+      <div class="status-copy">
+        <div><h1>你的工作区很平静</h1><p>暂时没有需要你优先处理的新事项。</p></div>
+        <span class="now">NOW</span>
+      </div>
+    </section>
+
+    <nav class="actions" aria-label="快捷操作">
+      <button class="action">查看工作区</button>
+      <button class="action">暂停提醒</button>
+    </nav>
+    <p class="hint">UI 概念预览 · 黑洞灵感 · 原创设计</p>
+  </main>
+</body>
+</html>
