@@ -27,7 +27,16 @@ jobs:
           SELF_FILE="./.github/workflows/guard-ef-migration-lane.yml"
           MARKER="migrations-empty-diff-check"
 
-          EF_REFS=$(grep -rIl --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=bin --exclude-dir=obj -e "Microsoft.EntityFrameworkCore" -e ": DbContext" . | grep -v -x "$SELF_FILE" || true)
+          # Scoped to actual C#/project files, not the whole repo. A blanket
+          # search over every file (including this guard's own comments and
+          # ADR-0006's prose describing the EF Core strategy) previously
+          # matched documentation as if it were code - a false positive that
+          # fired with zero DbContext ever in the repository. This is the
+          # same class of bug as the earlier self-exclusion path mismatch
+          # (a guard that fires when it shouldn't is as bad as one that
+          # never fires), fixed here by scoping the pattern instead of
+          # patching another exclusion.
+          EF_REFS=$(grep -rIl --include="*.cs" --include="*.csproj" --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=bin --exclude-dir=obj -e "Microsoft.EntityFrameworkCore" -e ": DbContext" . || true)
 
           if [ -z "$EF_REFS" ]; then
             echo "No EF Core package reference or DbContext subclass found - guard not applicable yet (see docs/adr/0006-hosting-neutrality.md)."
