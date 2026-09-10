@@ -82,13 +82,29 @@ Open, tracked in ADR-0004: deploy the disabled cross-scope probe
 appears in `sys_scope_privilege` once Runtime Access Tracking is set to
 Tracking. Not done yet — needs a live PDI session.
 
-**SLA scheduled jobs — corrected 2026-09-11.** The table that previously
-stood here (an eight-job tiered list: "SLA Async Delegator" plus four "SLA
-update (breach within X)" jobs) **did not survive an actual query against
-the instance** (`snow-app/diagnostics/scripts/sla-job-intervals.js`). Those
-five job names are not present on this PDI, active or inactive. The real,
-current jobs (all `sysauto`, queried by `name CONTAINS 'SLA'`, two
-substring false-positives via "tran**sla**tions"/"**Sla**ck" excluded):
+**SLA scheduled jobs — corrected 2026-09-11, then that correction was
+itself corrected.** A prior version of this table (an eight-job tiered
+list: "SLA Async Delegator" plus four "SLA update (breach within X)" jobs)
+was withdrawn on the strength of `sla-job-intervals.js`, which queried
+`sysauto` (job definitions) and, for each definition found there, looked
+for a `sys_trigger` row with a **matching name** — a nested lookup that
+could only ever find a trigger sharing a name with a static definition, and
+so had no chance of finding the dynamically-generated trigger rows the SLA
+engine actually creates. That withdrawal was wrong: a screenshot of this
+instance's `sys_trigger` list (**Schedule**: Name / Next action / Trigger
+type / Job ID / State / Run count) shows exactly the original eight jobs,
+by name. See `docs/adr/0005-sla-threshold-detection-strategy.md`
+("Correction to the correction") for the full account, including why the
+inference ("my query found nothing" → "these jobs don't exist") was itself
+the deeper error, not just the query bug.
+
+`snow-app/diagnostics/scripts/sla-trigger-queue.js` now queries
+`sys_trigger` directly (no join back to `sysauto`) and has been written but
+**not yet run** — real repeat intervals are pending its output, not
+restored here yet. Separately, the two real `sysauto`-side jobs the
+withdrawn script *did* correctly find remain real and independently
+relevant (queried by `name CONTAINS 'SLA'`, two substring false-positives
+via "tran**sla**tions"/"**Sla**ck" excluded):
 
 | Job | Class | Active | Cadence |
 |---|---|---|---|
@@ -100,12 +116,7 @@ substring false-positives via "tran**sla**tions"/"**Sla**ck" excluded):
 
 "Kokoro" is not recognized OOB ServiceNow naming — this instance already
 carries a pre-existing customization/demo integration, which is itself a
-data point (this is not a clean baseline instance). The tiered-
-recalculation-by-proximity-to-breach claim previously made here is
-withdrawn — not confirmed by evidence, and should not have been presented
-as measured. See `docs/adr/0005-sla-threshold-detection-strategy.md`
-("PDI script results") for the full correction and what it changes about
-the SLA detection strategy recommendation.
+data point (this is not a clean baseline instance).
 
 Also observed: `glide.sla.calculate_on_display = true`. The percentage
 shown in the UI is computed at display time; the **stored**
@@ -113,23 +124,22 @@ shown in the UI is computed at display time; the **stored**
 screenshot of a percentage is not evidence of the stored field's value —
 only a direct read of the stored field is.
 
-**`planned_end_time` pause/resume behavior — single observation, short
-window, still NOT settled.** On one `task_sla` record: setting the parent
-task to On Hold moved `stage` to Paused and stopped `business_percentage`
-from advancing, but `planned_end_time` did not change. Setting it back to
-In Progress did not push `planned_end_time` out either, in the short window
-observed. Caveats that must not be dropped from this note: this is a single
-record, a short observation window, and whatever job actually does the
-recalculation work (see the corrected job list above — not confirmed to be
-"SLA Async Delegator," which doesn't exist on this instance) may simply not
-have run yet in that window. `task-sla-pause-fields.js` was subsequently
-run once more (2026-09-11) but against a record that never paused
-(`pause_duration`/`pause_time` both blank) — it added a different finding
-(`business_percentage` is not capped at 100%, confirmed 54707.89% on an
-old breached-but-unclosed record) but did **not** add new evidence on the
-pause/resume question itself. Still needs the original three-part before/
-while-paused/after-resume comparison. See ADR-0005 for what this means for
-Option C's `pause_duration`-based correction idea.
+**`planned_end_time` pause/resume behavior — resolved on a clean record.**
+The single-record, breached-record observation previously noted here
+proved nothing (a record that already breached and never closed isn't a
+clean test). It has since been tested properly, three states
+(in_progress → paused → resumed) on one never-breached record with a real
+schedule attached. Full data and conclusions are in
+`docs/adr/0005-sla-threshold-detection-strategy.md` ("Finding 3 resolved");
+summarized: `planned_end_time` does not move on pause or resume;
+`pause_duration` materializes only once resumed, never while paused;
+`percentage` (calendar-based) and `business_percentage` (schedule-based,
+and separately confirmed uncapped past 100%) diverge severely and both need
+naming explicitly wherever this data is used; `planned_end_time` is itself
+schedule-aware (not naive calendar arithmetic), by what mechanism is not
+yet investigated. Still open: whether `pause_duration` accumulates across
+multiple pauses or resets each cycle. See ADR-0005 for the `fire_at`
+correction design this data supports.
 
 ## Current known gaps
 

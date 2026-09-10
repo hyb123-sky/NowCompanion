@@ -57,3 +57,10 @@ Field/table names in these scripts are best-effort for a recent ServiceNow
 release. If a script prints blanks where data is expected, that's a signal
 the name differs on this instance — report it rather than assuming the
 script is simply broken.
+
+- `sla-trigger-queue.js` — queries `sys_trigger` (the scheduler's runtime
+  QUEUE) directly. Supersedes the nested `sysauto`-then-`sys_trigger`-by-name
+  lookup in `sla-job-intervals.js`, which could only ever find a trigger row
+  whose name matched a job definition and so could never find the
+  dynamically-generated tiered SLA trigger rows — see
+  `docs/adr/0005-sla-threshold-detection-strategy.md` revision history.
