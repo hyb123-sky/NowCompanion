@@ -28,6 +28,7 @@ the decision that closed them.
 | A10b | Reference deployment path — full end-to-end | Clean machine, `compose up`, real ServiceNow instance, real IdP, real desktop client, one event travels from ServiceNow to the desktop. | **Unverified — reason stated, not implied otherwise.** Requires the Gateway's real ServiceNow/IdP integration and the client to exist (Phase 2/3); a green A10a does not imply this works. Do not let a green build stand in for this. |
 | A11 | Stability and interruption cost under real use | See below. | See below. |
 | A12 | Policy delivery channel — **a Phase 3 design decision, not a later one** | Client reads policy from two sources: a local policy registry path and server-side policy. Enforced local values win on conflict. Verify with local Group Policy on a single machine (an ADMX can be loaded into the local policy editor without a domain). | Server-side change takes effect on the client; a locally enforced lock causes a server-side change to be refused, with a log entry naming the source that won. |
+| A13 | PR-2 companion tables' schema-level constraints actually enforced | **Interim only — see below.** Four write-capable Background Scripts (`snow-app/diagnostics/write-scripts/`), each run once by hand on the PDI: second active `companion_policy` record, duplicate `sys_user` on `companion_user_map`, duplicate `(idp_issuer, idp_subject)` pair, duplicate `companion_outbox.idempotency_key`. | All four rejections observed and pasted back. **Manual, non-repeatable interim evidence, not a substitute for ATF** — see "A13 in detail" below for why, and for what closes this properly. |
 
 The zero-cost practices already in place — production-dependency audit
 gate, STRIDE model, ADR discipline, measured/reasoned tagging — are the
@@ -66,6 +67,50 @@ notification volume depends entirely on how much real ITSM work flows
 through in that week. No minimum-n threshold is proposed here (that would
 be inventing a number this document explicitly says not to invent); it's
 recorded as a limit to watch for, alongside n=1.
+
+### A13 in detail — why interim, and what closes it properly
+
+PR-2's ATF suite is blocked: `@servicenow/atf-fluent` is pinned at `2.0.5`
+(the only version ever published) against this project's
+`@servicenow/sdk@3.0.3`, and any `Test()` with at least one step crashes
+`now-sdk build` with `Cannot read properties of undefined (reading
+'record')` — see `snow-app/src/fluent/tables/README.md`. Until that's
+resolved, the four scripts in `snow-app/diagnostics/write-scripts/` are the
+only evidence that the unique-index constraints these tables declare are
+actually enforced by the platform, not just declared in schema.
+
+**This is explicitly weaker evidence than ATF, not a substitute for it**:
+each script is run once, by a human, on one instance, and is not part of
+CI — a future change that breaks one of these constraints will not turn
+anything red until someone remembers to re-run the script by hand. Record
+each run's outcome (pass/fail, date, who ran it) here or in the PR, not just
+"a script exists for this."
+
+**What would close this properly, investigated but not yet acted on:**
+- A scratch-directory experiment (SDK `4.11.2` + the same
+  `atf-fluent@2.0.5`, not upgraded in this project) built the identical
+  single-step ATF test that crashes under `3.0.3` — cleanly, no crash. This
+  is real, reproduced evidence that the crash is a `3.0.3`-toolchain defect,
+  not something intrinsic to `atf-fluent@2.0.5` itself. It does **not**
+  mean upgrading this project to SDK 4.x now — a major-version jump is its
+  own blast radius, untested against everything else this project depends
+  on, and this single test does not clear that bar. It does mean "wait for
+  upstream" is no longer the only option on the table.
+- `now-sdk transform` (the maintained replacement for the deprecated
+  `now-sdk fetch`) can, in principle, convert instance-authored ATF records
+  (`sys_atf_test`/`sys_atf_step`) into Fluent source — the SDK's own test
+  suite ships fixtures for exactly this. An offline probe against those
+  fixtures reached a **different** error inside the same `atf-fluent`
+  package (`TestPlugin.js`, `transformStep`: "Cannot find a step matching
+  config with id"), for a step type (`step_config` "Run Server Side
+  Script") that looks like a stock/OOB `sys_atf_step_config` record not
+  included in a 2-file test fixture — **inconclusive**, not a confirmed
+  dead end: it may simply need the dependency records a real
+  instance-connected download would include. Settling this needs a
+  human-run `now-sdk transform --auth <alias> --from <scope-sysid>` against
+  the PDI, following the established read-only-script pattern (this one
+  isn't read-only in the credential sense — it needs `now-sdk auth` — but
+  writes nothing to the instance itself).
 
 ### Table B — Deferred verification
 
