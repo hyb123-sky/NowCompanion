@@ -23,12 +23,27 @@ Confirmed empirically, not assumed:
   checked via `npm view @servicenow/atf-fluent versions`; there is no
   matching `3.0.3` release to upgrade to.
 
-Options going forward (not decided here): pin to the newer `4.x`
-`@servicenow/sdk` line the CLI has been suggesting throughout this project,
-in case it pulls a compatible `atf-fluent`; write these tests against the
-ServiceNow ATF UI/API directly instead of Fluent; or wait and track upstream.
+**Update — scratch-directory experiment (not applied to this project):** a
+throwaway project, `@servicenow/sdk@4.11.2` + the same
+`@servicenow/atf-fluent@2.0.5`, built the identical single-step test
+(`atf.server.log`) cleanly — no crash. The crash is a defect in this
+project's `3.0.3` build toolchain, not something intrinsic to
+`atf-fluent@2.0.5`. **This project is not being upgraded to SDK 4.x on the
+strength of one scratch test** — that's a real decision with its own blast
+radius, for a later, explicit call. Separately, `now-sdk transform` (the
+maintained replacement for deprecated `now-sdk fetch`) can in principle
+convert instance-authored ATF records into Fluent source; an offline probe
+against the SDK's own bundled ATF test fixtures hit a different error in
+the same package, inconclusively — plausibly just missing a stock
+dependency record the fixture doesn't include, not a confirmed dead end.
+Full account: `docs/definition-of-done.md` ("A13 in detail").
+
 The single-active-record, dual-uniqueness, and rejection behaviors these
-tests were meant to prove are already verified structurally (the generated
-dictionary XML for all three tables was inspected directly — the unique
-indexes are present exactly as declared), just not proven end-to-end via
-ATF yet.
+tests were meant to prove are verified two ways short of ATF: structurally
+(the generated dictionary XML for all three tables was inspected directly —
+the unique indexes are present exactly as declared), and empirically via
+four manual, non-repeatable write-capable scripts
+(`snow-app/diagnostics/write-scripts/`) that insert a real conflicting row
+and observe the platform reject it. Neither is a substitute for ATF running
+in CI — see `docs/definition-of-done.md` A13 for why that distinction
+matters.
